@@ -3,7 +3,7 @@
     "beforeDevCommand": "trunk serve",
     "beforeBuildCommand": "trunk build",
     "devPath": "http://localhost:1420",
-    "distDir": "../dist",
+    "distDir": "../src-ui/dist",
     "withGlobalTauri": true
   },
   "package": {
