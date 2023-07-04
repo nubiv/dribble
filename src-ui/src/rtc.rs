@@ -1,15 +1,20 @@
 use base64::engine::general_purpose;
 use base64::Engine;
 use js_sys::{Array, Object, Reflect};
-use leptos::{log, SignalSet, WriteSignal};
+use leptos::{
+    document, html::Video, log, NodeRef, SignalSet,
+    WriteSignal,
+};
 use wasm_bindgen::{
     convert::IntoWasmAbi, prelude::Closure, JsCast, JsValue,
 };
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{
+    window, HtmlMediaElement, MediaStream,
+    MediaStreamConstraints, MediaStreamTrack,
     RtcConfiguration, RtcPeerConnection,
     RtcPeerConnectionIceEvent, RtcSdpType,
-    RtcSessionDescriptionInit,
+    RtcSessionDescriptionInit, RtcTrackEvent,
 };
 
 pub fn init_connection(
@@ -33,6 +38,8 @@ pub fn init_connection(
 pub async fn create_offer(
     pc: &RtcPeerConnection,
     set_local_sdp: WriteSignal<String>,
+    local_stream_ref: NodeRef<Video>,
+    remote_stream_ref: NodeRef<Video>,
 ) -> Result<(), JsValue> {
     let local_offer =
         JsFuture::from(pc.create_offer()).await?;
@@ -46,6 +53,8 @@ pub async fn create_offer(
     .await?;
     log!("signaling state: {:?}", pc.signaling_state());
 
+    track_local_stream(pc, local_stream_ref).await?;
+    trach_remote_stream(pc, remote_stream_ref)?;
     // let encoded = general_purpose::STANDARD_NO_PAD.encode();
     // set_local_sdp
     //     .set(JsValue::from(offer).unchecked_into());
@@ -56,6 +65,8 @@ pub async fn create_offer(
 pub async fn answer_offer(
     session: crate::landing_page::Session,
     pc: &RtcPeerConnection,
+    local_stream_ref: NodeRef<Video>,
+    remote_stream_ref: NodeRef<Video>,
 ) -> Result<(), JsValue> {
     let mut remote_offer =
         RtcSessionDescriptionInit::new(RtcSdpType::Offer);
@@ -75,6 +86,9 @@ pub async fn answer_offer(
         JsFuture::from(pc.set_local_description(&answer))
             .await?;
     log!("signaling state: {:?}", pc.signaling_state());
+
+    track_local_stream(pc, local_stream_ref).await?;
+    trach_remote_stream(pc, remote_stream_ref)?;
 
     Ok(())
 }
@@ -116,30 +130,85 @@ pub fn on_ice_candidate(
     Ok(())
 }
 
-pub fn handle_events(
+async fn track_local_stream(
     pc: &RtcPeerConnection,
-    event: String,
-) {
-    match event.as_str() {
-        "icecandidate" => {
-            let on_ice_candidate =
-                Box::new(move |event: JsValue| {
-                    let candidate = Reflect::get(
-                        &event,
-                        &"candidate".into(),
-                    )
-                    .unwrap()
-                    .as_string()
-                    .unwrap();
+    local_stream_ref: NodeRef<Video>,
+) -> Result<(), JsValue> {
+    let mut media_constraints =
+        MediaStreamConstraints::new();
+    media_constraints
+        .video(&JsValue::from_bool(true))
+        .audio(&JsValue::from_bool(true));
+    let window = window().unwrap();
+    let is_secure = window.is_secure_context();
+    let navigator = window.navigator();
+    let media_devices = navigator.media_devices()?;
+    let local_stream = MediaStream::from(
+        JsFuture::from(
+            media_devices.get_user_media_with_constraints(
+                &media_constraints,
+            )?,
+        )
+        .await?,
+    );
 
-                    println!(
-                        "ICE candidate: {}",
-                        candidate
+    local_stream.get_tracks().for_each(
+        &mut |track: JsValue, _, _| {
+            let track = track.dyn_into().unwrap();
+            pc.add_track_0(&track, &local_stream);
+
+            if track.kind() == "video" {
+                let tracks = Array::new();
+                let _ = tracks.push(&track);
+
+                let stream = MediaStream::new_with_tracks(
+                    &tracks.into(),
+                )
+                .unwrap();
+
+                let local_stream_el =
+                    local_stream_ref.get().expect(
+                        "cant find local stream element",
                     );
-                });
-        }
-        _ => {
-            println!("Unhandled event: {}", event);
-        }
-    };
+                let id = local_stream_el
+                    .get_attribute("id")
+                    .unwrap();
+                log!("id is {:?}", id);
+                local_stream_el
+                    .set_src_object(Some(&stream));
+            }
+            log!("added a local track.");
+        },
+    );
+    Ok(())
+}
+
+fn trach_remote_stream(
+    pc: &RtcPeerConnection,
+    remote_stream_ref: NodeRef<Video>,
+) -> Result<(), JsValue> {
+    let ontrack_callback = Closure::<dyn FnMut(_)>::new(
+        move |ev: RtcTrackEvent| {
+            let remote_stream = ev.streams().at(0);
+            let stream = MediaStream::new_with_tracks(
+                &remote_stream,
+            )
+            .unwrap();
+
+            let remote_stream_el = remote_stream_ref
+                .get()
+                .expect("cant find local stream element");
+            remote_stream_el.set_src_object(Some(&stream));
+
+            log!("added remote stream.");
+        },
+    );
+
+    pc.set_ontrack(Some(
+        ontrack_callback.as_ref().unchecked_ref(),
+    ));
+
+    ontrack_callback.forget();
+
+    Ok(())
 }
