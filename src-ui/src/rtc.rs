@@ -2,19 +2,17 @@ use base64::engine::general_purpose;
 use base64::Engine;
 use js_sys::{Array, Object, Reflect};
 use leptos::{
-    document, html::Video, log, NodeRef, SignalSet,
-    WriteSignal,
+    html::{Input, Video},
+    log, NodeRef, SignalSet, WriteSignal,
 };
-use wasm_bindgen::{
-    convert::IntoWasmAbi, prelude::Closure, JsCast, JsValue,
-};
+use wasm_bindgen::{prelude::Closure, JsCast, JsValue};
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{
-    window, HtmlMediaElement, MediaStream,
-    MediaStreamConstraints, MediaStreamTrack,
+    window, MediaStream, MediaStreamConstraints,
     RtcConfiguration, RtcPeerConnection,
     RtcPeerConnectionIceEvent, RtcSdpType,
-    RtcSessionDescriptionInit, RtcTrackEvent,
+    RtcSessionDescriptionInit, RtcSignalingState,
+    RtcTrackEvent,
 };
 
 pub fn init_connection(
@@ -40,7 +38,9 @@ pub async fn create_offer(
     set_local_sdp: WriteSignal<String>,
     local_stream_ref: NodeRef<Video>,
     remote_stream_ref: NodeRef<Video>,
+    local_sdp_ref: NodeRef<Input>,
 ) -> Result<(), JsValue> {
+    on_ice_candidate(pc).unwrap();
     track_local_stream(pc, local_stream_ref).await?;
     trach_remote_stream(pc, remote_stream_ref)?;
 
@@ -55,9 +55,15 @@ pub async fn create_offer(
     )
     .await?;
     log!("signaling state: {:?}", pc.signaling_state());
-    // let encoded = general_purpose::STANDARD_NO_PAD.encode();
-    // set_local_sdp
-    //     .set(JsValue::from(offer).unchecked_into());
+
+    let sdp_js = Reflect::get(&local_offer, &"sdp".into())?;
+    let sdp_str = sdp_js.as_string().unwrap();
+    log!("sdp_str: {:?}", sdp_str);
+    let encoded =
+        general_purpose::STANDARD_NO_PAD.encode(sdp_str);
+    // set_local_sdp.set(encoded);
+    let local_sdp_input_el = local_sdp_ref.get().unwrap();
+    local_sdp_input_el.set_value(&encoded);
 
     Ok(())
 }
@@ -67,6 +73,7 @@ pub async fn answer_offer(
     pc: &RtcPeerConnection,
     local_stream_ref: NodeRef<Video>,
     remote_stream_ref: NodeRef<Video>,
+    local_sdp_ref: NodeRef<Input>,
 ) -> Result<(), JsValue> {
     let mut remote_offer =
         RtcSessionDescriptionInit::new(RtcSdpType::Offer);
@@ -79,16 +86,34 @@ pub async fn answer_offer(
     .await?;
     log!("signaling state: {:?}", pc.signaling_state());
 
-    track_local_stream(pc, local_stream_ref).await?;
-    trach_remote_stream(pc, remote_stream_ref)?;
+    if pc.signaling_state()
+        == RtcSignalingState::HaveRemoteOffer
+    {
+        on_ice_candidate(pc).unwrap();
+        track_local_stream(pc, local_stream_ref).await?;
+        trach_remote_stream(pc, remote_stream_ref)?;
 
-    let answer = JsFuture::from(pc.create_answer()).await?;
-    let answer = RtcSessionDescriptionInit::from(answer);
-    log!("answer: {:?}", &answer);
-    let _ =
-        JsFuture::from(pc.set_local_description(&answer))
-            .await?;
-    log!("signaling state: {:?}", pc.signaling_state());
+        let answer =
+            JsFuture::from(pc.create_answer()).await?;
+        let answer =
+            RtcSessionDescriptionInit::from(answer);
+        log!("answer: {:?}", &answer);
+        let _ = JsFuture::from(
+            pc.set_local_description(&answer),
+        )
+        .await?;
+        log!("signaling state: {:?}", pc.signaling_state());
+
+        let sdp_js = Reflect::get(&answer, &"sdp".into())?;
+        let sdp_str = sdp_js.as_string().unwrap();
+        log!("sdp_str: {:?}", sdp_str);
+        let encoded = general_purpose::STANDARD_NO_PAD
+            .encode(sdp_str);
+        // set_local_sdp.set(encoded);
+        let local_sdp_input_el =
+            local_sdp_ref.get().unwrap();
+        local_sdp_input_el.set_value(&encoded);
+    }
 
     Ok(())
 }
@@ -96,21 +121,23 @@ pub async fn answer_offer(
 pub fn on_ice_candidate(
     pc: &RtcPeerConnection,
 ) -> Result<(), JsValue> {
-    let pc_clone = pc.clone();
     let on_ice_candidate_callback =
         Closure::<dyn FnMut(_)>::new(
             move |ev: RtcPeerConnectionIceEvent| {
                 if let Some(candidate) = ev.candidate() {
-                    log!("ICE candidate: {:?}", candidate);
+                    log!(
+                        "ICE candidate: {:?}",
+                        Object::entries(&candidate)
+                    );
                 }
             },
         );
     let on_ice_connection_state_change_callback =
         Closure::<dyn FnMut(_)>::new(
-            move |_: RtcPeerConnectionIceEvent| {
+            move |ev: RtcPeerConnectionIceEvent| {
                 log!(
                     "ICE connection state: {:?}",
-                    pc_clone.ice_connection_state()
+                    Object::entries(&ev)
                 );
             },
         );
@@ -159,6 +186,7 @@ async fn track_local_stream(
         &mut |track: JsValue, _, _| {
             let track = track.dyn_into().unwrap();
             pc.add_track_0(&track, &local_stream);
+            log!("added local track to pc.");
 
             if track.kind() == "video" {
                 let tracks = Array::new();
@@ -176,7 +204,6 @@ async fn track_local_stream(
                 local_stream_el
                     .set_src_object(Some(&stream));
             }
-            log!("added a local track.");
         },
     );
     Ok(())
@@ -193,13 +220,12 @@ fn trach_remote_stream(
                 &remote_stream,
             )
             .unwrap();
+            log!("added remote stream.");
 
             let remote_stream_el = remote_stream_ref
                 .get()
                 .expect("cant find local stream element");
             remote_stream_el.set_src_object(Some(&stream));
-
-            log!("added remote stream.");
         },
     );
 

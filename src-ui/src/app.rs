@@ -2,7 +2,6 @@ use leptos::html::Video;
 use leptos::{
     component, create_node_ref, create_signal,
     provide_context, view, IntoView, NodeRef, Scope,
-    SignalGet,
 };
 
 use crate::landing_page::LandingPage;
@@ -23,7 +22,7 @@ pub fn App(cx: Scope) -> impl IntoView {
         create_node_ref(cx);
 
     view! { cx,
-            <main class="mx-[30%] mt-20">
+            <main class="mt-20 w-full">
             // {
             //     move || if in_meeting.get() {
             //         view! { cx,
@@ -41,14 +40,14 @@ pub fn App(cx: Scope) -> impl IntoView {
             //         }
             //     }
             // }
-                        <Meeting
-                        local_stream_ref=local_stream_ref
-                        remote_stream_ref=remote_stream_ref
-                        />
-                        <LandingPage
-                        local_stream_ref=local_stream_ref
-                        remote_stream_ref=remote_stream_ref
-                        />
+                <Meeting
+                local_stream_ref=local_stream_ref
+                remote_stream_ref=remote_stream_ref
+                />
+                <LandingPage
+                local_stream_ref=local_stream_ref
+                remote_stream_ref=remote_stream_ref
+                />
             </main>
     }
 }
