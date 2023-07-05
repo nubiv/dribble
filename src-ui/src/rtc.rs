@@ -41,6 +41,9 @@ pub async fn create_offer(
     local_stream_ref: NodeRef<Video>,
     remote_stream_ref: NodeRef<Video>,
 ) -> Result<(), JsValue> {
+    track_local_stream(pc, local_stream_ref).await?;
+    trach_remote_stream(pc, remote_stream_ref)?;
+
     let local_offer =
         JsFuture::from(pc.create_offer()).await?;
     let local_offer =
@@ -52,9 +55,6 @@ pub async fn create_offer(
     )
     .await?;
     log!("signaling state: {:?}", pc.signaling_state());
-
-    track_local_stream(pc, local_stream_ref).await?;
-    trach_remote_stream(pc, remote_stream_ref)?;
     // let encoded = general_purpose::STANDARD_NO_PAD.encode();
     // set_local_sdp
     //     .set(JsValue::from(offer).unchecked_into());
@@ -79,6 +79,9 @@ pub async fn answer_offer(
     .await?;
     log!("signaling state: {:?}", pc.signaling_state());
 
+    track_local_stream(pc, local_stream_ref).await?;
+    trach_remote_stream(pc, remote_stream_ref)?;
+
     let answer = JsFuture::from(pc.create_answer()).await?;
     let answer = RtcSessionDescriptionInit::from(answer);
     log!("answer: {:?}", &answer);
@@ -86,9 +89,6 @@ pub async fn answer_offer(
         JsFuture::from(pc.set_local_description(&answer))
             .await?;
     log!("signaling state: {:?}", pc.signaling_state());
-
-    track_local_stream(pc, local_stream_ref).await?;
-    trach_remote_stream(pc, remote_stream_ref)?;
 
     Ok(())
 }
@@ -139,10 +139,13 @@ async fn track_local_stream(
     media_constraints
         .video(&JsValue::from_bool(true))
         .audio(&JsValue::from_bool(true));
+
     let window = window().unwrap();
     let is_secure = window.is_secure_context();
+    log!("is secure: {:?}", is_secure);
     let navigator = window.navigator();
     let media_devices = navigator.media_devices()?;
+
     let local_stream = MediaStream::from(
         JsFuture::from(
             media_devices.get_user_media_with_constraints(
@@ -170,10 +173,6 @@ async fn track_local_stream(
                     local_stream_ref.get().expect(
                         "cant find local stream element",
                     );
-                let id = local_stream_el
-                    .get_attribute("id")
-                    .unwrap();
-                log!("id is {:?}", id);
                 local_stream_el
                     .set_src_object(Some(&stream));
             }
