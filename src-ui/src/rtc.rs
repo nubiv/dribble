@@ -3,7 +3,7 @@ use base64::Engine;
 use js_sys::{Array, Object, Reflect};
 use leptos::{
     html::{Input, Video},
-    log, NodeRef, SignalSet, WriteSignal,
+    log, NodeRef,
 };
 use wasm_bindgen::{prelude::Closure, JsCast, JsValue};
 use wasm_bindgen_futures::JsFuture;
@@ -35,7 +35,6 @@ pub fn init_connection(
 
 pub async fn create_offer(
     pc: &RtcPeerConnection,
-    set_local_sdp: WriteSignal<String>,
     local_stream_ref: NodeRef<Video>,
     remote_stream_ref: NodeRef<Video>,
     local_sdp_ref: NodeRef<Input>,
@@ -109,7 +108,6 @@ pub async fn answer_offer(
         log!("sdp_str: {:?}", sdp_str);
         let encoded = general_purpose::STANDARD_NO_PAD
             .encode(sdp_str);
-        // set_local_sdp.set(encoded);
         let local_sdp_input_el =
             local_sdp_ref.get().unwrap();
         local_sdp_input_el.set_value(&encoded);
@@ -163,9 +161,15 @@ async fn track_local_stream(
 ) -> Result<(), JsValue> {
     let mut media_constraints =
         MediaStreamConstraints::new();
+    let ideal_constraint = Object::new();
+    Reflect::set(
+        &ideal_constraint,
+        &"ideal".into(),
+        &JsValue::from_bool(true),
+    )?;
     media_constraints
-        .video(&JsValue::from_bool(true))
-        .audio(&JsValue::from_bool(true));
+        .video(&ideal_constraint)
+        .audio(&ideal_constraint);
 
     let window = window().unwrap();
     let is_secure = window.is_secure_context();
