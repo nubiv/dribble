@@ -8,18 +8,6 @@ mod commands;
 mod init;
 
 use commands::send_passphrase;
-use tauri::Manager;
-
-#[derive(Default)]
-pub struct ConnectionState {
-    entry: std::sync::Mutex<Option<String>>,
-    role: std::sync::Mutex<Option<Role>>,
-}
-
-enum Role {
-    Initiator,
-    Responder,
-}
 
 fn main() {
     tauri::Builder::default()
@@ -29,7 +17,6 @@ fn main() {
         .setup(|app| {
             let app_handle = app.handle();
             // init::init().expect("failed to initialize");
-            app_handle.manage(ConnectionState::default());
 
             Ok(())
         })

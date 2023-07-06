@@ -3,7 +3,7 @@ use leptos::{
     NodeRef, Scope, SignalSet,
 };
 
-use super::app::InMeetingContext;
+use crate::app::InMeetingContext;
 
 #[component]
 pub fn Meeting(
@@ -15,23 +15,27 @@ pub fn Meeting(
         use_context::<InMeetingContext>(cx).unwrap().0;
 
     view! { cx,
-      <div class="grid grid-cols-2 gap-0 w-full">
-        <div class="col-span-1">
-          <video
-            node_ref=remote_stream_ref
-            class="w-full p-3"
-            autoplay
-            controls
-          ></video>
-        </div>
-
+      <div class="grid grid-cols-2 gap-0 w-full h-auto">
         <div class="col-span-1">
           <video
             node_ref=local_stream_ref
             class="w-full p-3"
             autoplay
             controls
-          ></video>
+          >
+            <p>"Sorry, your browser doesn't support embedded videos"</p>
+          </video>
+        </div>
+
+        <div class="col-span-1">
+          <video
+            node_ref=remote_stream_ref
+            class="w-full p-3"
+            autoplay
+            controls
+          >
+            <p>"Sorry, your browser doesn't support embedded videos"</p>
+          </video>
         </div>
       </div>
       // <button

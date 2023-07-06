@@ -1,22 +1,16 @@
 use base64::engine::general_purpose;
 use base64::Engine;
-use leptos::html::{Input, Video, P};
+use leptos::html::{Input, Textarea, Video};
 use leptos::{
     component, create_node_ref, log, use_context, view,
     IntoView, NodeRef, Scope,
 };
-use serde::{Deserialize, Serialize};
 use web_sys::window;
 
 use crate::app::InMeetingContext;
 use crate::rtc::{
     answer_offer, create_offer, init_connection,
 };
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct Session {
-    pub sdp: String,
-}
 
 #[component]
 pub fn LandingPage(
@@ -26,8 +20,9 @@ pub fn LandingPage(
 ) -> impl IntoView {
     let set_in_meeting =
         use_context::<InMeetingContext>(cx).unwrap().0;
-    let local_sdp_ref: NodeRef<Input> = create_node_ref(cx);
-    let remote_sdp_ref: NodeRef<Input> =
+    let local_sdp_ref: NodeRef<Textarea> =
+        create_node_ref(cx);
+    let remote_sdp_ref: NodeRef<Textarea> =
         create_node_ref(cx);
 
     let on_answer_offer = move |_| {
@@ -49,9 +44,8 @@ pub fn LandingPage(
                 String::from_utf8(decoded_utf8).unwrap();
 
             let pc = init_connection().unwrap();
-            let session = Session { sdp: decoded_str };
             if let Err(e) = answer_offer(
-                session,
+                &decoded_str,
                 &pc,
                 local_stream_ref,
                 remote_stream_ref,
@@ -96,7 +90,7 @@ pub fn LandingPage(
     };
 
     view! { cx,
-        <div class="px-[30%]">
+        <div class="grid grid-cols-2 gap-0 w-full h-[30vh]">
             // <input
             //     class="border"
             //     type="text"
@@ -111,32 +105,32 @@ pub fn LandingPage(
             //         passphrase.get()
             //     }
             //     />
-            <div class="m-2">
+            <div class="col-span-1 p-1">
                 <label for="local_sdp">LOCAL: </label>
-                <input
+                <textarea
                     node_ref=local_sdp_ref
-                    class="border w-auto h-auto"
+                    class="border w-full h-full"
                     type="text"
                     id="local_sdp"
                 />
-            </div>
-            <div class="m-2">
-                <label for="remote_sdp">REMOTE: </label>
-                <input
-                    node_ref=remote_sdp_ref
-                    class="border w-auto h-auto"
-                    type="text"
-                    id="remote_sdp"
-                />
-            </div>
             <button
                 class="border mx-2 p-1"
                 on:click=on_generate_offer
                 >"New offer"</button>
-            <button
-                class="border mx-2 p-1"
-                on:click=on_answer_offer
-                >"Answer"</button>
+            </div>
+            <div class="col-span-1 p-1">
+                <label for="remote_sdp">REMOTE: </label>
+                <textarea
+                    node_ref=remote_sdp_ref
+                    class="border w-full h-full"
+                    type="text"
+                    id="remote_sdp"
+                />
+                <button
+                    class="border mx-2 p-1"
+                    on:click=on_answer_offer
+                    >"Answer"</button>
+            </div>
         </div>
     }
 }

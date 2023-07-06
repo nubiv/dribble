@@ -4,14 +4,15 @@ use leptos::{
     provide_context, view, IntoView, NodeRef, Scope,
 };
 
-use crate::landing_page::LandingPage;
-use crate::meeting::Meeting;
+use crate::components::{LandingPage, Meeting};
 
 #[derive(Clone)]
-pub struct InMeetingContext(pub leptos::WriteSignal<bool>);
+pub(crate) struct InMeetingContext(
+    pub leptos::WriteSignal<bool>,
+);
 
 #[component]
-pub fn App(cx: Scope) -> impl IntoView {
+pub(crate) fn App(cx: Scope) -> impl IntoView {
     let (in_meeting, set_in_meeting) =
         create_signal(cx, false);
     provide_context(cx, InMeetingContext(set_in_meeting));
@@ -22,7 +23,7 @@ pub fn App(cx: Scope) -> impl IntoView {
         create_node_ref(cx);
 
     view! { cx,
-            <main class="mt-20 w-full">
+            <main class="mt-20 w-full h-screen">
             // {
             //     move || if in_meeting.get() {
             //         view! { cx,

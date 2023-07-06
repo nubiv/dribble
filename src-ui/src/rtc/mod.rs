@@ -2,7 +2,7 @@ use base64::engine::general_purpose;
 use base64::Engine;
 use js_sys::{Array, Object, Reflect};
 use leptos::{
-    html::{Input, Video},
+    html::{Input, Textarea, Video},
     log, NodeRef,
 };
 use wasm_bindgen::{prelude::Closure, JsCast, JsValue};
@@ -37,7 +37,7 @@ pub async fn create_offer(
     pc: &RtcPeerConnection,
     local_stream_ref: NodeRef<Video>,
     remote_stream_ref: NodeRef<Video>,
-    local_sdp_ref: NodeRef<Input>,
+    local_sdp_ref: NodeRef<Textarea>,
 ) -> Result<(), JsValue> {
     on_ice_candidate(pc).unwrap();
     track_local_stream(pc, local_stream_ref).await?;
@@ -60,7 +60,6 @@ pub async fn create_offer(
     log!("sdp_str: {:?}", sdp_str);
     let encoded =
         general_purpose::STANDARD_NO_PAD.encode(sdp_str);
-    // set_local_sdp.set(encoded);
     let local_sdp_input_el = local_sdp_ref.get().unwrap();
     local_sdp_input_el.set_value(&encoded);
 
@@ -68,15 +67,15 @@ pub async fn create_offer(
 }
 
 pub async fn answer_offer(
-    session: crate::landing_page::Session,
+    remote_sdp_encoded: &str,
     pc: &RtcPeerConnection,
     local_stream_ref: NodeRef<Video>,
     remote_stream_ref: NodeRef<Video>,
-    local_sdp_ref: NodeRef<Input>,
+    local_sdp_ref: NodeRef<Textarea>,
 ) -> Result<(), JsValue> {
     let mut remote_offer =
         RtcSessionDescriptionInit::new(RtcSdpType::Offer);
-    remote_offer.sdp(&session.sdp);
+    remote_offer.sdp(remote_sdp_encoded);
     log!("remote description: {:?}", &remote_offer);
 
     let _ = JsFuture::from(
@@ -162,6 +161,7 @@ async fn track_local_stream(
     let mut media_constraints =
         MediaStreamConstraints::new();
     let ideal_constraint = Object::new();
+    // TODO: this ideal type doesn't seem to work
     Reflect::set(
         &ideal_constraint,
         &"ideal".into(),

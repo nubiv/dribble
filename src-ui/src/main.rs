@@ -1,8 +1,7 @@
 mod app;
-mod landing_page;
-mod meeting;
+mod components;
 mod rtc;
-mod tauri_api;
+mod tauri_ipc;
 
 use app::App;
 use leptos::{mount_to_body, view};
