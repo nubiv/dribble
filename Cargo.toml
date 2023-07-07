@@ -3,3 +3,4 @@ members = [
     "src-tauri", 
     "src-ui"
     ]
+resolver = "2"

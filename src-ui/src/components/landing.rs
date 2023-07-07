@@ -1,13 +1,14 @@
 use base64::engine::general_purpose;
 use base64::Engine;
-use leptos::html::{Input, Textarea, Video};
+use leptos::html::{Textarea, Video};
 use leptos::{
-    component, create_node_ref, log, use_context, view,
-    IntoView, NodeRef, Scope,
+    component, create_effect, create_node_ref, log,
+    use_context, view, IntoView, NodeRef, ReadSignal,
+    Scope, SignalGet, SignalSet, WriteSignal,
 };
-use web_sys::window;
+use web_sys::{window, RtcPeerConnection};
 
-use crate::app::InMeetingContext;
+use crate::app::{InMeetingContext, RtcConnectionContext};
 use crate::rtc::{
     answer_offer, create_offer, init_connection,
 };
@@ -18,8 +19,14 @@ pub fn LandingPage(
     local_stream_ref: NodeRef<Video>,
     remote_stream_ref: NodeRef<Video>,
 ) -> impl IntoView {
-    let set_in_meeting =
+    let in_meeting =
         use_context::<InMeetingContext>(cx).unwrap().0;
+    let set_in_meeting =
+        use_context::<InMeetingContext>(cx).unwrap().1;
+    let rtc_pc =
+        use_context::<RtcConnectionContext>(cx).unwrap().0;
+    let set_rtc_pc =
+        use_context::<RtcConnectionContext>(cx).unwrap().1;
     let local_sdp_ref: NodeRef<Textarea> =
         create_node_ref(cx);
     let remote_sdp_ref: NodeRef<Textarea> =
@@ -30,6 +37,7 @@ pub fn LandingPage(
             let remote_sdp_input_el =
                 remote_sdp_ref.get().unwrap();
             let remote_sdp = remote_sdp_input_el.value();
+            // log!("remote_sdp: {:?}", remote_sdp);
 
             if remote_sdp.is_empty() {
                 log!("Remote code is required.");
@@ -43,18 +51,43 @@ pub fn LandingPage(
             let decoded_str =
                 String::from_utf8(decoded_utf8).unwrap();
 
-            let pc = init_connection().unwrap();
-            if let Err(e) = answer_offer(
-                &decoded_str,
-                &pc,
-                local_stream_ref,
-                remote_stream_ref,
-                local_sdp_ref,
-            )
-            .await
-            {
-                log!("error: {:?}", e);
-            };
+            match rtc_pc.get() {
+                Some(pc) => {
+                    if let Err(e) = answer_offer(
+                        &decoded_str,
+                        &pc,
+                        local_stream_ref,
+                        remote_stream_ref,
+                        local_sdp_ref,
+                        rtc_pc,
+                    )
+                    .await
+                    {
+                        log!("error: {:?}", e);
+                    };
+                }
+                None => {
+                    log!("creating new connection");
+                    let pc = init_connection().unwrap();
+                    if let Err(e) = answer_offer(
+                        &decoded_str,
+                        &pc,
+                        local_stream_ref,
+                        remote_stream_ref,
+                        local_sdp_ref,
+                        rtc_pc,
+                    )
+                    .await
+                    {
+                        log!("error: {:?}", e);
+                    };
+                    set_rtc_pc.set(Some(pc));
+                }
+            }
+
+            if !in_meeting.get() {
+                set_in_meeting.set(true);
+            }
         })
     };
 
@@ -66,11 +99,17 @@ pub fn LandingPage(
                 local_stream_ref,
                 remote_stream_ref,
                 local_sdp_ref,
+                rtc_pc,
             )
             .await
             {
                 log!("error: {:?}", e);
             };
+            set_rtc_pc.set(Some(pc));
+
+            if !in_meeting.get() {
+                set_in_meeting.set(true);
+            }
         })
     };
 
@@ -88,6 +127,19 @@ pub fn LandingPage(
             log!("text: {:?}", text);
         }
     };
+
+    create_effect(cx, move |_| {
+        if !in_meeting.get() {
+            set_in_meeting.set(false);
+
+            if let Some(el) = local_sdp_ref.get() {
+                el.set_value("");
+            };
+            if let Some(el) = remote_sdp_ref.get() {
+                el.set_value("");
+            };
+        }
+    });
 
     view! { cx,
         <div class="grid grid-cols-2 gap-0 w-full h-[30vh]">

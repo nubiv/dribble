@@ -2,20 +2,20 @@ use base64::engine::general_purpose;
 use base64::Engine;
 use js_sys::{Array, Object, Reflect};
 use leptos::{
-    html::{Input, Textarea, Video},
-    log, NodeRef,
+    html::{Textarea, Video},
+    log, NodeRef, SignalGet,
 };
 use wasm_bindgen::{prelude::Closure, JsCast, JsValue};
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{
     window, MediaStream, MediaStreamConstraints,
-    RtcConfiguration, RtcPeerConnection,
-    RtcPeerConnectionIceEvent, RtcSdpType,
-    RtcSessionDescriptionInit, RtcSignalingState,
-    RtcTrackEvent,
+    RtcConfiguration, RtcIceConnectionState,
+    RtcPeerConnection, RtcPeerConnectionIceEvent,
+    RtcSdpType, RtcSessionDescriptionInit,
+    RtcSignalingState, RtcTrackEvent,
 };
 
-pub fn init_connection(
+pub(crate) fn init_connection(
 ) -> Result<RtcPeerConnection, JsValue> {
     RtcPeerConnection::new_with_configuration(&{
         let ice_servers = Array::new();
@@ -29,35 +29,40 @@ pub fn init_connection(
 
         let mut rtc_configuration = RtcConfiguration::new();
         rtc_configuration.ice_servers(&ice_servers);
+        Reflect::set(
+            &rtc_configuration,
+            &"iceCandidatePoolSize".into(),
+            &3.into(),
+        )?;
         rtc_configuration
     })
 }
 
-pub async fn create_offer(
+pub(crate) async fn create_offer(
     pc: &RtcPeerConnection,
     local_stream_ref: NodeRef<Video>,
     remote_stream_ref: NodeRef<Video>,
     local_sdp_ref: NodeRef<Textarea>,
+    rtc_pc: leptos::ReadSignal<Option<RtcPeerConnection>>,
 ) -> Result<(), JsValue> {
-    on_ice_candidate(pc).unwrap();
+    track_ice_candidate_event(pc, rtc_pc)?;
     track_local_stream(pc, local_stream_ref).await?;
-    trach_remote_stream(pc, remote_stream_ref)?;
+    track_remote_stream(pc, remote_stream_ref)?;
 
     let local_offer =
         JsFuture::from(pc.create_offer()).await?;
     let local_offer =
         RtcSessionDescriptionInit::from(local_offer);
-    log!("local description: {:?}", &local_offer);
 
     let _ = JsFuture::from(
         pc.set_local_description(&local_offer),
     )
     .await?;
+    // log!("local description: {:?}", &local_offer);
     log!("signaling state: {:?}", pc.signaling_state());
 
     let sdp_js = Reflect::get(&local_offer, &"sdp".into())?;
     let sdp_str = sdp_js.as_string().unwrap();
-    log!("sdp_str: {:?}", sdp_str);
     let encoded =
         general_purpose::STANDARD_NO_PAD.encode(sdp_str);
     let local_sdp_input_el = local_sdp_ref.get().unwrap();
@@ -66,76 +71,136 @@ pub async fn create_offer(
     Ok(())
 }
 
-pub async fn answer_offer(
-    remote_sdp_encoded: &str,
+pub(crate) async fn answer_offer(
+    remote_sdp_decoded: &str,
     pc: &RtcPeerConnection,
     local_stream_ref: NodeRef<Video>,
     remote_stream_ref: NodeRef<Video>,
     local_sdp_ref: NodeRef<Textarea>,
+    rtc_pc: leptos::ReadSignal<Option<RtcPeerConnection>>,
 ) -> Result<(), JsValue> {
-    let mut remote_offer =
-        RtcSessionDescriptionInit::new(RtcSdpType::Offer);
-    remote_offer.sdp(remote_sdp_encoded);
-    log!("remote description: {:?}", &remote_offer);
+    match pc.signaling_state() {
+        RtcSignalingState::HaveLocalOffer => {
+            let mut remote_offer =
+                RtcSessionDescriptionInit::new(
+                    RtcSdpType::Answer,
+                );
+            remote_offer.sdp(remote_sdp_decoded);
 
-    let _ = JsFuture::from(
-        pc.set_remote_description(&remote_offer),
-    )
-    .await?;
-    log!("signaling state: {:?}", pc.signaling_state());
+            let _ = JsFuture::from(
+                pc.set_remote_description(&remote_offer),
+            )
+            .await?;
+            // log!("remote description: {:?}", &remote_offer);
+            log!(
+                "signaling state: {:?}",
+                pc.signaling_state()
+            );
+        }
+        RtcSignalingState::Stable => {
+            track_ice_candidate_event(pc, rtc_pc)?;
+            track_local_stream(pc, local_stream_ref)
+                .await?;
+            track_remote_stream(pc, remote_stream_ref)?;
 
-    if pc.signaling_state()
-        == RtcSignalingState::HaveRemoteOffer
-    {
-        on_ice_candidate(pc).unwrap();
-        track_local_stream(pc, local_stream_ref).await?;
-        trach_remote_stream(pc, remote_stream_ref)?;
+            let mut remote_offer =
+                RtcSessionDescriptionInit::new(
+                    RtcSdpType::Offer,
+                );
+            remote_offer.sdp(remote_sdp_decoded);
 
-        let answer =
-            JsFuture::from(pc.create_answer()).await?;
-        let answer =
-            RtcSessionDescriptionInit::from(answer);
-        log!("answer: {:?}", &answer);
-        let _ = JsFuture::from(
-            pc.set_local_description(&answer),
-        )
-        .await?;
-        log!("signaling state: {:?}", pc.signaling_state());
+            let _ = JsFuture::from(
+                pc.set_remote_description(&remote_offer),
+            )
+            .await?;
+            // log!("remote description: {:?}", &remote_offer);
+            log!(
+                "signaling state: {:?}",
+                pc.signaling_state()
+            );
 
-        let sdp_js = Reflect::get(&answer, &"sdp".into())?;
-        let sdp_str = sdp_js.as_string().unwrap();
-        log!("sdp_str: {:?}", sdp_str);
-        let encoded = general_purpose::STANDARD_NO_PAD
-            .encode(sdp_str);
-        let local_sdp_input_el =
-            local_sdp_ref.get().unwrap();
-        local_sdp_input_el.set_value(&encoded);
+            let answer =
+                JsFuture::from(pc.create_answer()).await?;
+            let answer =
+                RtcSessionDescriptionInit::from(answer);
+            let _ = JsFuture::from(
+                pc.set_local_description(&answer),
+            )
+            .await?;
+            log!(
+                "signaling state: {:?}",
+                pc.signaling_state()
+            );
+
+            let sdp_js =
+                Reflect::get(&answer, &"sdp".into())?;
+            let sdp_str = sdp_js.as_string().unwrap();
+            let encoded = general_purpose::STANDARD_NO_PAD
+                .encode(sdp_str);
+            let local_sdp_input_el =
+                local_sdp_ref.get().unwrap();
+            local_sdp_input_el.set_value(&encoded);
+        }
+        _ => {}
     }
 
     Ok(())
 }
 
-pub fn on_ice_candidate(
+pub(crate) fn track_ice_candidate_event(
     pc: &RtcPeerConnection,
+    rtc_pc: leptos::ReadSignal<Option<RtcPeerConnection>>,
 ) -> Result<(), JsValue> {
     let on_ice_candidate_callback =
         Closure::<dyn FnMut(_)>::new(
-            move |ev: RtcPeerConnectionIceEvent| {
-                if let Some(candidate) = ev.candidate() {
+            move |ev: RtcPeerConnectionIceEvent| match ev
+                .candidate()
+            {
+                Some(candidate) => {
+                    let candidate_obj =
+                        Object::unchecked_from_js(
+                            JsValue::from(&candidate),
+                        );
+                    let candidate_str = Reflect::get(
+                        &candidate_obj,
+                        &"candidate".into(),
+                    )
+                    .unwrap();
                     log!(
                         "ICE candidate: {:?}",
-                        Object::entries(&candidate)
+                        &candidate_str
                     );
+                    leptos::spawn_local(async move {
+                        let pc = match rtc_pc.get() {
+                            Some(cn) => cn,
+                            None => {
+                                log!("no connection found");
+                                return;
+                            }
+                        };
+
+                        match pc.signaling_state() {
+                            RtcSignalingState::Stable => {
+                                JsFuture::from(pc.add_ice_candidate_with_opt_rtc_ice_candidate(Some(&candidate))).await.unwrap();
+                            }
+                            RtcSignalingState::HaveRemoteOffer => {
+                                JsFuture::from(pc.add_ice_candidate_with_opt_rtc_ice_candidate(Some(&candidate))).await.unwrap();
+                            }
+                            RtcSignalingState::HaveLocalOffer => {}
+                            RtcSignalingState::Closed => {}
+                            _ => {}
+                        }
+                    });
+                }
+                None => {
+                    log!("ICE gathering completed");
                 }
             },
         );
     let on_ice_connection_state_change_callback =
         Closure::<dyn FnMut(_)>::new(
-            move |ev: RtcPeerConnectionIceEvent| {
-                log!(
-                    "ICE connection state: {:?}",
-                    Object::entries(&ev)
-                );
+            move |ev: RtcIceConnectionState| {
+                log!("ICE connection state: {:?}", &ev);
             },
         );
 
@@ -161,7 +226,7 @@ async fn track_local_stream(
     let mut media_constraints =
         MediaStreamConstraints::new();
     let ideal_constraint = Object::new();
-    // TODO: this ideal type doesn't seem to work
+    // TODO: this ideal type doesn't work on wasm api
     Reflect::set(
         &ideal_constraint,
         &"ideal".into(),
@@ -171,11 +236,20 @@ async fn track_local_stream(
         .video(&ideal_constraint)
         .audio(&ideal_constraint);
 
-    let window = window().unwrap();
-    let is_secure = window.is_secure_context();
-    log!("is secure: {:?}", is_secure);
-    let navigator = window.navigator();
+    let navigator = get_navigator()?;
     let media_devices = navigator.media_devices()?;
+    let devices_enum =
+        JsFuture::from(media_devices.enumerate_devices()?)
+            .await?;
+    log!(
+        "devices: {:?}",
+        Array::unchecked_from_js(
+            Object::entries(Object::unchecked_from_js_ref(
+                &devices_enum
+            ))
+            .get(0)
+        )
+    );
 
     let local_stream = MediaStream::from(
         JsFuture::from(
@@ -190,14 +264,14 @@ async fn track_local_stream(
         &mut |track: JsValue, _, _| {
             let track = track.dyn_into().unwrap();
             pc.add_track_0(&track, &local_stream);
-            log!("added local track to pc.");
+            log!("local track added.");
 
             if track.kind() == "video" {
-                let tracks = Array::new();
-                let _ = tracks.push(&track);
+                let video_track = Array::new();
+                let _ = video_track.push(&track);
 
                 let stream = MediaStream::new_with_tracks(
-                    &tracks.into(),
+                    &video_track.into(),
                 )
                 .unwrap();
 
@@ -213,18 +287,18 @@ async fn track_local_stream(
     Ok(())
 }
 
-fn trach_remote_stream(
+fn track_remote_stream(
     pc: &RtcPeerConnection,
     remote_stream_ref: NodeRef<Video>,
 ) -> Result<(), JsValue> {
     let ontrack_callback = Closure::<dyn FnMut(_)>::new(
         move |ev: RtcTrackEvent| {
-            let remote_stream = ev.streams().at(0);
+            log!("remote stream received.");
+            let remote_video_track = ev.streams().get(0);
             let stream = MediaStream::new_with_tracks(
-                &remote_stream,
+                &remote_video_track.dyn_into().unwrap(),
             )
             .unwrap();
-            log!("added remote stream.");
 
             let remote_stream_el = remote_stream_ref
                 .get()
@@ -240,4 +314,31 @@ fn trach_remote_stream(
     ontrack_callback.forget();
 
     Ok(())
+}
+
+pub(crate) async fn track_display_stream(
+) -> Result<(), JsValue> {
+    let navigator = get_navigator()?;
+
+    let use_agent = navigator.user_agent()?;
+    log!("user agent: {:?}", use_agent);
+
+    let media_devices = navigator.media_devices()?;
+    let display_devices =
+        JsFuture::from(media_devices.get_display_media()?)
+            .await?;
+    let display_stream = MediaStream::from(display_devices);
+    log!("display stream: {:?}", display_stream);
+
+    Ok(())
+}
+
+fn get_navigator() -> Result<web_sys::Navigator, JsValue> {
+    let window =
+        window().ok_or(JsValue::from("no window found"))?;
+    let is_secure = window.is_secure_context();
+    log!("is secure: {:?}", is_secure);
+    let navigator = window.navigator();
+
+    Ok(navigator)
 }
