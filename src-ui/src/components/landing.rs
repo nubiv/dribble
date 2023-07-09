@@ -6,7 +6,9 @@ use leptos::{
     use_context, view, IntoView, NodeRef, ReadSignal,
     Scope, SignalGet, SignalSet, WriteSignal,
 };
-use web_sys::{window, RtcPeerConnection};
+use web_sys::{
+    window, RtcIceCandidateInit, RtcPeerConnection,
+};
 
 use crate::app::{InMeetingContext, RtcConnectionContext};
 use crate::rtc::{
@@ -31,6 +33,8 @@ pub fn LandingPage(
         create_node_ref(cx);
     let remote_sdp_ref: NodeRef<Textarea> =
         create_node_ref(cx);
+    // let ice_candidate_ref: NodeRef<Textarea> =
+    //     create_node_ref(cx);
 
     let on_answer_offer = move |_| {
         leptos::spawn_local(async move {
@@ -141,6 +145,23 @@ pub fn LandingPage(
         }
     });
 
+    // let on_add_ice_candidate = move |_| {
+    //     leptos::spawn_local(async move {
+    //         let el = ice_candidate_ref.get().unwrap();
+    //         let ice_candidate = el.value();
+    //         let ice_candidate = RtcIceCandidateInit::new(
+    //             ice_candidate.as_str(),
+    //         );
+    //         log!("ice_candidate: {:?}", ice_candidate);
+
+    //         let pc = rtc_pc.get().unwrap();
+    //         let promis = pc.add_ice_candidate_with_opt_rtc_ice_candidate_init(Some(&ice_candidate));
+    //         wasm_bindgen_futures::JsFuture::from(promis)
+    //             .await
+    //             .unwrap();
+    //     })
+    // };
+
     view! { cx,
         <div class="grid grid-cols-2 gap-0 w-full h-[30vh]">
             // <input
@@ -184,5 +205,18 @@ pub fn LandingPage(
                     >"Answer"</button>
             </div>
         </div>
+        // <div class="mt-10">
+        //     <label for="ice_candidate">IceCandidate: </label>
+        //     <textarea
+        //         node_ref=ice_candidate_ref
+        //         class="border w-full h-full"
+        //         type="text"
+        //         id="ice_candidate"
+        //     />
+        //     <button
+        //         class="border mx-2 p-1"
+        //         on:click=on_add_ice_candidate
+        //         >"Add"</button>
+        // </div>
     }
 }

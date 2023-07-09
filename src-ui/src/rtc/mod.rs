@@ -61,12 +61,28 @@ pub(crate) async fn create_offer(
     // log!("local description: {:?}", &local_offer);
     log!("signaling state: {:?}", pc.signaling_state());
 
-    let sdp_js = Reflect::get(&local_offer, &"sdp".into())?;
-    let sdp_str = sdp_js.as_string().unwrap();
-    let encoded =
-        general_purpose::STANDARD_NO_PAD.encode(sdp_str);
-    let local_sdp_input_el = local_sdp_ref.get().unwrap();
-    local_sdp_input_el.set_value(&encoded);
+    let interval = std::time::Duration::from_millis(2000);
+    leptos::set_timeout(
+        move || {
+            let sdp_js =
+                Reflect::get(&local_offer, &"sdp".into())
+                    .unwrap();
+            let sdp_str = sdp_js.as_string().unwrap();
+            let encoded = general_purpose::STANDARD_NO_PAD
+                .encode(sdp_str);
+            let local_sdp_input_el =
+                local_sdp_ref.get().unwrap();
+            local_sdp_input_el.set_value(&encoded);
+        },
+        interval,
+    );
+
+    // let sdp_js = Reflect::get(&local_offer, &"sdp".into())?;
+    // let sdp_str = sdp_js.as_string().unwrap();
+    // let encoded =
+    //     general_purpose::STANDARD_NO_PAD.encode(sdp_str);
+    // let local_sdp_input_el = local_sdp_ref.get().unwrap();
+    // local_sdp_input_el.set_value(&encoded);
 
     Ok(())
 }
@@ -132,14 +148,35 @@ pub(crate) async fn answer_offer(
                 pc.signaling_state()
             );
 
-            let sdp_js =
-                Reflect::get(&answer, &"sdp".into())?;
-            let sdp_str = sdp_js.as_string().unwrap();
-            let encoded = general_purpose::STANDARD_NO_PAD
-                .encode(sdp_str);
-            let local_sdp_input_el =
-                local_sdp_ref.get().unwrap();
-            local_sdp_input_el.set_value(&encoded);
+            let interval =
+                std::time::Duration::from_millis(2000);
+            leptos::set_timeout(
+                move || {
+                    let sdp_js = Reflect::get(
+                        &answer,
+                        &"sdp".into(),
+                    )
+                    .unwrap();
+                    let sdp_str =
+                        sdp_js.as_string().unwrap();
+                    let encoded =
+                        general_purpose::STANDARD_NO_PAD
+                            .encode(sdp_str);
+                    let local_sdp_input_el =
+                        local_sdp_ref.get().unwrap();
+                    local_sdp_input_el.set_value(&encoded);
+                },
+                interval,
+            );
+
+            // let sdp_js =
+            //     Reflect::get(&answer, &"sdp".into())?;
+            // let sdp_str = sdp_js.as_string().unwrap();
+            // let encoded = general_purpose::STANDARD_NO_PAD
+            //     .encode(sdp_str);
+            // let local_sdp_input_el =
+            //     local_sdp_ref.get().unwrap();
+            // local_sdp_input_el.set_value(&encoded);
         }
         _ => {}
     }
@@ -170,6 +207,7 @@ pub(crate) fn track_ice_candidate_event(
                         "ICE candidate: {:?}",
                         &candidate_str
                     );
+
                     leptos::spawn_local(async move {
                         let pc = match rtc_pc.get() {
                             Some(cn) => cn,
@@ -181,12 +219,37 @@ pub(crate) fn track_ice_candidate_event(
 
                         match pc.signaling_state() {
                             RtcSignalingState::Stable => {
-                                JsFuture::from(pc.add_ice_candidate_with_opt_rtc_ice_candidate(Some(&candidate))).await.unwrap();
+                                // let interval =
+                                //     std::time::Duration::from_millis(2000);
+                                // leptos::set_timeout(
+                                //     move || {
+                                //         let _ = pc.add_ice_candidate_with_opt_rtc_ice_candidate(Some(&candidate));
+                                //     },
+                                //     interval,
+                                // );
+                                // JsFuture::from(pc.add_ice_candidate_with_opt_rtc_ice_candidate(Some(&candidate))).await.unwrap();
                             }
                             RtcSignalingState::HaveRemoteOffer => {
-                                JsFuture::from(pc.add_ice_candidate_with_opt_rtc_ice_candidate(Some(&candidate))).await.unwrap();
+                                // let interval =
+                                //     std::time::Duration::from_millis(2000);
+                                // leptos::set_timeout(
+                                //     move || {
+                                //         let _ = pc.add_ice_candidate_with_opt_rtc_ice_candidate(Some(&candidate));
+                                //     },
+                                //     interval,
+                                // );
+                                // JsFuture::from(pc.add_ice_candidate_with_opt_rtc_ice_candidate(Some(&candidate))).await.unwrap();
                             }
-                            RtcSignalingState::HaveLocalOffer => {}
+                            RtcSignalingState::HaveLocalOffer => {
+                                // let interval =
+                                //     std::time::Duration::from_millis(2000);
+                                // leptos::set_timeout(
+                                //     move || {
+                                //         let _ = pc.add_ice_candidate_with_opt_rtc_ice_candidate(Some(&candidate));
+                                //     },
+                                //     interval,
+                                // );
+                            }
                             RtcSignalingState::Closed => {}
                             _ => {}
                         }
@@ -197,10 +260,15 @@ pub(crate) fn track_ice_candidate_event(
                 }
             },
         );
+    let pc_clone = pc.clone();
     let on_ice_connection_state_change_callback =
         Closure::<dyn FnMut(_)>::new(
             move |ev: RtcIceConnectionState| {
                 log!("ICE connection state: {:?}", &ev);
+                log!(
+                    "ice connection state: {:?}",
+                    pc_clone.ice_connection_state()
+                );
             },
         );
 
