@@ -1,14 +1,10 @@
-use base64::engine::general_purpose;
-use base64::Engine;
 use leptos::html::{Textarea, Video};
 use leptos::{
     component, create_effect, create_node_ref, log,
-    use_context, view, IntoView, NodeRef, ReadSignal,
-    Scope, SignalGet, SignalSet, WriteSignal,
+    use_context, view, IntoView, NodeRef, Scope, SignalGet,
+    SignalSet,
 };
-use web_sys::{
-    window, RtcIceCandidateInit, RtcPeerConnection,
-};
+use web_sys::window;
 
 use crate::app::{InMeetingContext, RtcConnectionContext};
 use crate::rtc::{
@@ -33,8 +29,8 @@ pub fn LandingPage(
         create_node_ref(cx);
     let remote_sdp_ref: NodeRef<Textarea> =
         create_node_ref(cx);
-    // let ice_candidate_ref: NodeRef<Textarea> =
-    //     create_node_ref(cx);
+    let ice_candidate_ref: NodeRef<Textarea> =
+        create_node_ref(cx);
 
     let on_answer_offer = move |_| {
         leptos::spawn_local(async move {
@@ -48,17 +44,10 @@ pub fn LandingPage(
                 return;
             }
 
-            let decoded_utf8 =
-                general_purpose::STANDARD_NO_PAD
-                    .decode(remote_sdp)
-                    .unwrap();
-            let decoded_str =
-                String::from_utf8(decoded_utf8).unwrap();
-
             match rtc_pc.get() {
                 Some(pc) => {
                     if let Err(e) = answer_offer(
-                        &decoded_str,
+                        &remote_sdp,
                         &pc,
                         local_stream_ref,
                         remote_stream_ref,
@@ -74,7 +63,7 @@ pub fn LandingPage(
                     log!("creating new connection");
                     let pc = init_connection().unwrap();
                     if let Err(e) = answer_offer(
-                        &decoded_str,
+                        &remote_sdp,
                         &pc,
                         local_stream_ref,
                         remote_stream_ref,
@@ -145,39 +134,8 @@ pub fn LandingPage(
         }
     });
 
-    // let on_add_ice_candidate = move |_| {
-    //     leptos::spawn_local(async move {
-    //         let el = ice_candidate_ref.get().unwrap();
-    //         let ice_candidate = el.value();
-    //         let ice_candidate = RtcIceCandidateInit::new(
-    //             ice_candidate.as_str(),
-    //         );
-    //         log!("ice_candidate: {:?}", ice_candidate);
-
-    //         let pc = rtc_pc.get().unwrap();
-    //         let promis = pc.add_ice_candidate_with_opt_rtc_ice_candidate_init(Some(&ice_candidate));
-    //         wasm_bindgen_futures::JsFuture::from(promis)
-    //             .await
-    //             .unwrap();
-    //     })
-    // };
-
     view! { cx,
         <div class="grid grid-cols-2 gap-0 w-full h-[30vh]">
-            // <input
-            //     class="border"
-            //     type="text"
-            //     placeholder="Enter a passphrase..."
-            //     on:input= move |ev| {
-            //         let v = event_target_value(&ev);
-            //         let stripped = v.replace("\\r", "\r").replace("\\n", "\n");
-
-            //         set_passphrase.set(stripped);
-            //     }
-            //     prop:value= move || {
-            //         passphrase.get()
-            //     }
-            //     />
             <div class="col-span-1 p-1">
                 <label for="local_sdp">LOCAL: </label>
                 <textarea
@@ -205,18 +163,5 @@ pub fn LandingPage(
                     >"Answer"</button>
             </div>
         </div>
-        // <div class="mt-10">
-        //     <label for="ice_candidate">IceCandidate: </label>
-        //     <textarea
-        //         node_ref=ice_candidate_ref
-        //         class="border w-full h-full"
-        //         type="text"
-        //         id="ice_candidate"
-        //     />
-        //     <button
-        //         class="border mx-2 p-1"
-        //         on:click=on_add_ice_candidate
-        //         >"Add"</button>
-        // </div>
     }
 }

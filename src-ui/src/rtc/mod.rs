@@ -9,10 +9,11 @@ use wasm_bindgen::{prelude::Closure, JsCast, JsValue};
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{
     window, MediaStream, MediaStreamConstraints,
-    RtcConfiguration, RtcIceConnectionState,
-    RtcPeerConnection, RtcPeerConnectionIceEvent,
-    RtcSdpType, RtcSessionDescriptionInit,
-    RtcSignalingState, RtcTrackEvent,
+    RtcConfiguration, RtcIceCandidateInit,
+    RtcIceConnectionState, RtcPeerConnection,
+    RtcPeerConnectionIceEvent, RtcSdpType,
+    RtcSessionDescriptionInit, RtcSignalingState,
+    RtcTrackEvent,
 };
 
 pub(crate) fn init_connection(
@@ -45,7 +46,7 @@ pub(crate) async fn create_offer(
     local_sdp_ref: NodeRef<Textarea>,
     rtc_pc: leptos::ReadSignal<Option<RtcPeerConnection>>,
 ) -> Result<(), JsValue> {
-    track_ice_candidate_event(pc, rtc_pc)?;
+    track_ice_candidate_event(pc, rtc_pc, local_sdp_ref)?;
     track_local_stream(pc, local_stream_ref).await?;
     track_remote_stream(pc, remote_stream_ref)?;
 
@@ -61,28 +62,12 @@ pub(crate) async fn create_offer(
     // log!("local description: {:?}", &local_offer);
     log!("signaling state: {:?}", pc.signaling_state());
 
-    let interval = std::time::Duration::from_millis(2000);
-    leptos::set_timeout(
-        move || {
-            let sdp_js =
-                Reflect::get(&local_offer, &"sdp".into())
-                    .unwrap();
-            let sdp_str = sdp_js.as_string().unwrap();
-            let encoded = general_purpose::STANDARD_NO_PAD
-                .encode(sdp_str);
-            let local_sdp_input_el =
-                local_sdp_ref.get().unwrap();
-            local_sdp_input_el.set_value(&encoded);
-        },
-        interval,
-    );
-
-    // let sdp_js = Reflect::get(&local_offer, &"sdp".into())?;
-    // let sdp_str = sdp_js.as_string().unwrap();
-    // let encoded =
-    //     general_purpose::STANDARD_NO_PAD.encode(sdp_str);
-    // let local_sdp_input_el = local_sdp_ref.get().unwrap();
-    // local_sdp_input_el.set_value(&encoded);
+    let sdp_js = Reflect::get(&local_offer, &"sdp".into())?;
+    let sdp_str = sdp_js.as_string().unwrap();
+    let encoded =
+        general_purpose::STANDARD_NO_PAD.encode(sdp_str);
+    let local_sdp_input_el = local_sdp_ref.get().unwrap();
+    local_sdp_input_el.set_value(&encoded);
 
     Ok(())
 }
@@ -95,6 +80,16 @@ pub(crate) async fn answer_offer(
     local_sdp_ref: NodeRef<Textarea>,
     rtc_pc: leptos::ReadSignal<Option<RtcPeerConnection>>,
 ) -> Result<(), JsValue> {
+    let splitted: Vec<&str> =
+        remote_sdp_decoded.split('+').collect();
+
+    let remote_sdp_encoded = splitted[0];
+    let decoded_utf8 = general_purpose::STANDARD_NO_PAD
+        .decode(remote_sdp_encoded)
+        .unwrap();
+    let remote_sdp_decoded =
+        &String::from_utf8(decoded_utf8).unwrap();
+
     match pc.signaling_state() {
         RtcSignalingState::HaveLocalOffer => {
             let mut remote_offer =
@@ -114,7 +109,11 @@ pub(crate) async fn answer_offer(
             );
         }
         RtcSignalingState::Stable => {
-            track_ice_candidate_event(pc, rtc_pc)?;
+            track_ice_candidate_event(
+                pc,
+                rtc_pc,
+                local_sdp_ref,
+            )?;
             track_local_stream(pc, local_stream_ref)
                 .await?;
             track_remote_stream(pc, remote_stream_ref)?;
@@ -148,38 +147,39 @@ pub(crate) async fn answer_offer(
                 pc.signaling_state()
             );
 
-            let interval =
-                std::time::Duration::from_millis(2000);
-            leptos::set_timeout(
-                move || {
-                    let sdp_js = Reflect::get(
-                        &answer,
-                        &"sdp".into(),
-                    )
-                    .unwrap();
-                    let sdp_str =
-                        sdp_js.as_string().unwrap();
-                    let encoded =
-                        general_purpose::STANDARD_NO_PAD
-                            .encode(sdp_str);
-                    let local_sdp_input_el =
-                        local_sdp_ref.get().unwrap();
-                    local_sdp_input_el.set_value(&encoded);
-                },
-                interval,
-            );
-
-            // let sdp_js =
-            //     Reflect::get(&answer, &"sdp".into())?;
-            // let sdp_str = sdp_js.as_string().unwrap();
-            // let encoded = general_purpose::STANDARD_NO_PAD
-            //     .encode(sdp_str);
-            // let local_sdp_input_el =
-            //     local_sdp_ref.get().unwrap();
-            // local_sdp_input_el.set_value(&encoded);
+            let sdp_js =
+                Reflect::get(&answer, &"sdp".into())?;
+            let sdp_str = sdp_js.as_string().unwrap();
+            let encoded = general_purpose::STANDARD_NO_PAD
+                .encode(sdp_str);
+            let local_sdp_input_el =
+                local_sdp_ref.get().unwrap();
+            local_sdp_input_el.set_value(&encoded);
         }
         _ => {}
     }
+
+    let candidates = &splitted[1..];
+    candidates.iter().for_each(|candidate| {
+        let splitted: Vec<&str> =
+            candidate.split('=').collect();
+
+        let v_candidate = splitted[0];
+        let v_sdp_mid = splitted[1];
+        let v_sdp_m_line_index =
+            splitted[2].parse::<u16>().unwrap();
+
+        let mut ice_candidate =
+            RtcIceCandidateInit::new("");
+        ice_candidate.candidate(v_candidate);
+        ice_candidate.sdp_mid(Some(v_sdp_mid));
+        ice_candidate
+            .sdp_m_line_index(Some(v_sdp_m_line_index));
+
+        let _ = pc.add_ice_candidate_with_opt_rtc_ice_candidate_init(
+            Some(&ice_candidate),
+        );
+    });
 
     Ok(())
 }
@@ -187,6 +187,7 @@ pub(crate) async fn answer_offer(
 pub(crate) fn track_ice_candidate_event(
     pc: &RtcPeerConnection,
     rtc_pc: leptos::ReadSignal<Option<RtcPeerConnection>>,
+    local_sdp_ref: NodeRef<Textarea>,
 ) -> Result<(), JsValue> {
     let on_ice_candidate_callback =
         Closure::<dyn FnMut(_)>::new(
@@ -198,76 +199,64 @@ pub(crate) fn track_ice_candidate_event(
                         Object::unchecked_from_js(
                             JsValue::from(&candidate),
                         );
-                    let candidate_str = Reflect::get(
+
+                    let v_candidate = Reflect::get(
                         &candidate_obj,
                         &"candidate".into(),
                     )
+                    .unwrap()
+                    .as_string()
                     .unwrap();
-                    log!(
-                        "ICE candidate: {:?}",
-                        &candidate_str
+                    let v_sdp_mid = Reflect::get(
+                        &candidate_obj,
+                        &"sdpMid".into(),
+                    )
+                    .unwrap()
+                    .as_string()
+                    .unwrap();
+                    let v_sdp_m_line_index = Reflect::get(
+                        &candidate_obj,
+                        &"sdpMLineIndex".into(),
+                    )
+                    .unwrap()
+                    .as_f64()
+                    .unwrap()
+                        as u16;
+                    let concated_candidate = format!(
+                        "+{v_candidate}={v_sdp_mid}={v_sdp_m_line_index}",
                     );
 
-                    leptos::spawn_local(async move {
-                        let pc = match rtc_pc.get() {
-                            Some(cn) => cn,
-                            None => {
-                                log!("no connection found");
-                                return;
-                            }
-                        };
-
-                        match pc.signaling_state() {
-                            RtcSignalingState::Stable => {
-                                // let interval =
-                                //     std::time::Duration::from_millis(2000);
-                                // leptos::set_timeout(
-                                //     move || {
-                                //         let _ = pc.add_ice_candidate_with_opt_rtc_ice_candidate(Some(&candidate));
-                                //     },
-                                //     interval,
-                                // );
-                                // JsFuture::from(pc.add_ice_candidate_with_opt_rtc_ice_candidate(Some(&candidate))).await.unwrap();
-                            }
-                            RtcSignalingState::HaveRemoteOffer => {
-                                // let interval =
-                                //     std::time::Duration::from_millis(2000);
-                                // leptos::set_timeout(
-                                //     move || {
-                                //         let _ = pc.add_ice_candidate_with_opt_rtc_ice_candidate(Some(&candidate));
-                                //     },
-                                //     interval,
-                                // );
-                                // JsFuture::from(pc.add_ice_candidate_with_opt_rtc_ice_candidate(Some(&candidate))).await.unwrap();
-                            }
-                            RtcSignalingState::HaveLocalOffer => {
-                                // let interval =
-                                //     std::time::Duration::from_millis(2000);
-                                // leptos::set_timeout(
-                                //     move || {
-                                //         let _ = pc.add_ice_candidate_with_opt_rtc_ice_candidate(Some(&candidate));
-                                //     },
-                                //     interval,
-                                // );
-                            }
-                            RtcSignalingState::Closed => {}
-                            _ => {}
-                        }
-                    });
+                    let local_sdp_input_el =
+                        local_sdp_ref.get().unwrap();
+                    let local_sdp =
+                        local_sdp_input_el.value();
+                    let local_sdp_with_candidate = format!(
+                        "{local_sdp}{concated_candidate}",
+                    );
+                    local_sdp_input_el.set_value(
+                        &local_sdp_with_candidate,
+                    );
                 }
                 None => {
                     log!("ICE gathering completed");
                 }
             },
         );
-    let pc_clone = pc.clone();
     let on_ice_connection_state_change_callback =
         Closure::<dyn FnMut(_)>::new(
             move |ev: RtcIceConnectionState| {
                 log!("ICE connection state: {:?}", &ev);
+
+                let pc = match rtc_pc.get() {
+                    Some(cn) => cn,
+                    None => {
+                        log!("no connection found");
+                        return;
+                    }
+                };
                 log!(
                     "ice connection state: {:?}",
-                    pc_clone.ice_connection_state()
+                    pc.ice_connection_state()
                 );
             },
         );
