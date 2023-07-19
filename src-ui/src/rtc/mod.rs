@@ -73,7 +73,7 @@ pub(crate) async fn create_offer(
 }
 
 pub(crate) async fn answer_offer(
-    remote_sdp_decoded: &str,
+    remote_sdp: &str,
     pc: &RtcPeerConnection,
     local_stream_ref: NodeRef<Video>,
     remote_stream_ref: NodeRef<Video>,
@@ -81,14 +81,14 @@ pub(crate) async fn answer_offer(
     rtc_pc: leptos::ReadSignal<Option<RtcPeerConnection>>,
 ) -> Result<(), JsValue> {
     let splitted: Vec<&str> =
-        remote_sdp_decoded.split('+').collect();
+        remote_sdp.split('+').collect();
 
     let remote_sdp_encoded = splitted[0];
-    let decoded_utf8 = general_purpose::STANDARD_NO_PAD
+    let remote_sdp_utf8 = general_purpose::STANDARD_NO_PAD
         .decode(remote_sdp_encoded)
         .unwrap();
-    let remote_sdp_decoded =
-        &String::from_utf8(decoded_utf8).unwrap();
+    let remote_sdp =
+        &String::from_utf8(remote_sdp_utf8).unwrap();
 
     match pc.signaling_state() {
         RtcSignalingState::HaveLocalOffer => {
@@ -96,7 +96,7 @@ pub(crate) async fn answer_offer(
                 RtcSessionDescriptionInit::new(
                     RtcSdpType::Answer,
                 );
-            remote_offer.sdp(remote_sdp_decoded);
+            remote_offer.sdp(remote_sdp);
 
             let _ = JsFuture::from(
                 pc.set_remote_description(&remote_offer),
@@ -122,7 +122,7 @@ pub(crate) async fn answer_offer(
                 RtcSessionDescriptionInit::new(
                     RtcSdpType::Offer,
                 );
-            remote_offer.sdp(remote_sdp_decoded);
+            remote_offer.sdp(remote_sdp);
 
             let _ = JsFuture::from(
                 pc.set_remote_description(&remote_offer),
@@ -164,14 +164,18 @@ pub(crate) async fn answer_offer(
         let splitted: Vec<&str> =
             candidate.split('=').collect();
 
-        let v_candidate = splitted[0];
+        let v_candidate_encoded = splitted[0];
+        let v_candidate_utf8 = general_purpose::STANDARD_NO_PAD
+            .decode(v_candidate_encoded)
+            .unwrap();
+        let v_candidate = String::from_utf8(v_candidate_utf8).unwrap();
         let v_sdp_mid = splitted[1];
         let v_sdp_m_line_index =
             splitted[2].parse::<u16>().unwrap();
 
         let mut ice_candidate =
             RtcIceCandidateInit::new("");
-        ice_candidate.candidate(v_candidate);
+        ice_candidate.candidate(&v_candidate);
         ice_candidate.sdp_mid(Some(v_sdp_mid));
         ice_candidate
             .sdp_m_line_index(Some(v_sdp_m_line_index));
@@ -207,6 +211,9 @@ pub(crate) fn track_ice_candidate_event(
                     .unwrap()
                     .as_string()
                     .unwrap();
+                    let v_candidate_encoded =
+                        general_purpose::STANDARD_NO_PAD
+                            .encode(v_candidate);
                     let v_sdp_mid = Reflect::get(
                         &candidate_obj,
                         &"sdpMid".into(),
@@ -223,7 +230,7 @@ pub(crate) fn track_ice_candidate_event(
                     .unwrap()
                         as u16;
                     let concated_candidate = format!(
-                        "+{v_candidate}={v_sdp_mid}={v_sdp_m_line_index}",
+                        "+{v_candidate_encoded}={v_sdp_mid}={v_sdp_m_line_index}",
                     );
 
                     let local_sdp_input_el =

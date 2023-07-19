@@ -29,8 +29,8 @@ pub fn LandingPage(
         create_node_ref(cx);
     let remote_sdp_ref: NodeRef<Textarea> =
         create_node_ref(cx);
-    let ice_candidate_ref: NodeRef<Textarea> =
-        create_node_ref(cx);
+    // let ice_candidate_ref: NodeRef<Textarea> =
+    //     create_node_ref(cx);
 
     let on_answer_offer = move |_| {
         leptos::spawn_local(async move {
