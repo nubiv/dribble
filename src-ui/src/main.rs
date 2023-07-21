@@ -1,5 +1,6 @@
 mod app;
 mod components;
+mod pages;
 mod rtc;
 mod tauri_ipc;
 

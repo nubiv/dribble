@@ -46,34 +46,34 @@ pub fn LandingPage(
 
             match rtc_pc.get() {
                 Some(pc) => {
-                    if let Err(e) = answer_offer(
-                        &remote_sdp,
-                        &pc,
-                        local_stream_ref,
-                        remote_stream_ref,
-                        local_sdp_ref,
-                        rtc_pc,
-                    )
-                    .await
-                    {
-                        log!("error: {:?}", e);
-                    };
+                    // if let Err(e) = answer_offer(
+                    //     &remote_sdp,
+                    //     &pc,
+                    //     local_stream_ref,
+                    //     remote_stream_ref,
+                    //     local_sdp_ref,
+                    //     rtc_pc,
+                    // )
+                    // .await
+                    // {
+                    //     log!("error: {:?}", e);
+                    // };
                 }
                 None => {
                     log!("creating new connection");
                     let pc = init_connection().unwrap();
-                    if let Err(e) = answer_offer(
-                        &remote_sdp,
-                        &pc,
-                        local_stream_ref,
-                        remote_stream_ref,
-                        local_sdp_ref,
-                        rtc_pc,
-                    )
-                    .await
-                    {
-                        log!("error: {:?}", e);
-                    };
+                    // if let Err(e) = answer_offer(
+                    //     &remote_sdp,
+                    //     &pc,
+                    //     local_stream_ref,
+                    //     remote_stream_ref,
+                    //     local_sdp_ref,
+                    //     rtc_pc,
+                    // )
+                    // .await
+                    // {
+                    //     log!("error: {:?}", e);
+                    // };
                     set_rtc_pc.set(Some(pc));
                 }
             }
@@ -87,17 +87,17 @@ pub fn LandingPage(
     let on_generate_offer = move |_| {
         leptos::spawn_local(async move {
             let pc = init_connection().unwrap();
-            if let Err(e) = create_offer(
-                &pc,
-                local_stream_ref,
-                remote_stream_ref,
-                local_sdp_ref,
-                rtc_pc,
-            )
-            .await
-            {
-                log!("error: {:?}", e);
-            };
+            // if let Err(e) = create_offer(
+            //     &pc,
+            //     local_stream_ref,
+            //     remote_stream_ref,
+            //     local_sdp_ref,
+            //     rtc_pc,
+            // )
+            // .await
+            // {
+            //     log!("error: {:?}", e);
+            // };
             set_rtc_pc.set(Some(pc));
 
             if !in_meeting.get() {

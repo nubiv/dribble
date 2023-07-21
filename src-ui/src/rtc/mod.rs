@@ -1,9 +1,11 @@
+use std::rc::Rc;
+
 use base64::engine::general_purpose;
 use base64::Engine;
 use js_sys::{Array, Object, Reflect};
 use leptos::{
     html::{Textarea, Video},
-    log, NodeRef, SignalGet,
+    log, NodeRef, SignalGet, SignalSet,
 };
 use wasm_bindgen::{prelude::Closure, JsCast, JsValue};
 use wasm_bindgen_futures::JsFuture;
@@ -15,6 +17,8 @@ use web_sys::{
     RtcSessionDescriptionInit, RtcSignalingState,
     RtcTrackEvent,
 };
+
+use crate::pages::MediaOption;
 
 pub(crate) fn init_connection(
 ) -> Result<RtcPeerConnection, JsValue> {
@@ -41,14 +45,14 @@ pub(crate) fn init_connection(
 
 pub(crate) async fn create_offer(
     pc: &RtcPeerConnection,
-    local_stream_ref: NodeRef<Video>,
-    remote_stream_ref: NodeRef<Video>,
+    // local_stream_ref: NodeRef<Video>,
+    // remote_stream_ref: NodeRef<Video>,
     local_sdp_ref: NodeRef<Textarea>,
-    rtc_pc: leptos::ReadSignal<Option<RtcPeerConnection>>,
+    // rtc_pc: leptos::ReadSignal<Option<RtcPeerConnection>>,
 ) -> Result<(), JsValue> {
-    track_ice_candidate_event(pc, rtc_pc, local_sdp_ref)?;
-    track_local_stream(pc, local_stream_ref).await?;
-    track_remote_stream(pc, remote_stream_ref)?;
+    // track_ice_candidate_event(pc, rtc_pc, local_sdp_ref)?;
+    // track_local_stream(pc, local_stream_ref).await?;
+    // track_remote_stream(pc, remote_stream_ref)?;
 
     let local_offer =
         JsFuture::from(pc.create_offer()).await?;
@@ -75,10 +79,10 @@ pub(crate) async fn create_offer(
 pub(crate) async fn answer_offer(
     remote_sdp: &str,
     pc: &RtcPeerConnection,
-    local_stream_ref: NodeRef<Video>,
-    remote_stream_ref: NodeRef<Video>,
+    // local_stream_ref: NodeRef<Video>,
+    // remote_stream_ref: NodeRef<Video>,
     local_sdp_ref: NodeRef<Textarea>,
-    rtc_pc: leptos::ReadSignal<Option<RtcPeerConnection>>,
+    // rtc_pc: leptos::ReadSignal<Option<RtcPeerConnection>>,
 ) -> Result<(), JsValue> {
     let splitted: Vec<&str> =
         remote_sdp.split('+').collect();
@@ -109,14 +113,14 @@ pub(crate) async fn answer_offer(
             );
         }
         RtcSignalingState::Stable => {
-            track_ice_candidate_event(
-                pc,
-                rtc_pc,
-                local_sdp_ref,
-            )?;
-            track_local_stream(pc, local_stream_ref)
-                .await?;
-            track_remote_stream(pc, remote_stream_ref)?;
+            // track_ice_candidate_event(
+            //     pc,
+            //     rtc_pc,
+            //     local_sdp_ref,
+            // )?;
+            // track_local_stream(pc, local_stream_ref)
+            //     .await?;
+            // track_remote_stream(pc, remote_stream_ref)?;
 
             let mut remote_offer =
                 RtcSessionDescriptionInit::new(
@@ -283,51 +287,15 @@ pub(crate) fn track_ice_candidate_event(
     Ok(())
 }
 
-async fn track_local_stream(
+pub(crate) async fn track_local_stream(
     pc: &RtcPeerConnection,
     local_stream_ref: NodeRef<Video>,
+    media_stream: Rc<MediaStream>,
 ) -> Result<(), JsValue> {
-    let mut media_constraints =
-        MediaStreamConstraints::new();
-    let ideal_constraint = Object::new();
-    // TODO: this ideal type doesn't work on wasm api
-    Reflect::set(
-        &ideal_constraint,
-        &"ideal".into(),
-        &JsValue::from_bool(true),
-    )?;
-    media_constraints
-        .video(&ideal_constraint)
-        .audio(&ideal_constraint);
-
-    let navigator = get_navigator()?;
-    let media_devices = navigator.media_devices()?;
-    let devices_enum =
-        JsFuture::from(media_devices.enumerate_devices()?)
-            .await?;
-    log!(
-        "devices: {:?}",
-        Array::unchecked_from_js(
-            Object::entries(Object::unchecked_from_js_ref(
-                &devices_enum
-            ))
-            .get(0)
-        )
-    );
-
-    let local_stream = MediaStream::from(
-        JsFuture::from(
-            media_devices.get_user_media_with_constraints(
-                &media_constraints,
-            )?,
-        )
-        .await?,
-    );
-
-    local_stream.get_tracks().for_each(
+    media_stream.get_tracks().for_each(
         &mut |track: JsValue, _, _| {
             let track = track.dyn_into().unwrap();
-            pc.add_track_0(&track, &local_stream);
+            pc.add_track_0(&track, &media_stream);
             log!("local track added.");
 
             if track.kind() == "video" {
@@ -351,7 +319,7 @@ async fn track_local_stream(
     Ok(())
 }
 
-fn track_remote_stream(
+pub(crate) fn track_remote_stream(
     pc: &RtcPeerConnection,
     remote_stream_ref: NodeRef<Video>,
 ) -> Result<(), JsValue> {
@@ -405,4 +373,78 @@ fn get_navigator() -> Result<web_sys::Navigator, JsValue> {
     let navigator = window.navigator();
 
     Ok(navigator)
+}
+
+pub(crate) async fn init_media_stream(
+    set_media_stream: leptos::WriteSignal<
+        Option<Rc<MediaStream>>,
+    >,
+    media_option: leptos::ReadSignal<MediaOption>,
+) -> Result<Rc<MediaStream>, JsValue> {
+    let mut media_constraints =
+        MediaStreamConstraints::new();
+    let ideal_constraint_true = Object::new();
+    // TODO: this ideal type doesn't work on wasm api
+    Reflect::set(
+        &ideal_constraint_true,
+        &"ideal".into(),
+        &JsValue::from_bool(true),
+    )?;
+    let ideal_constraint_false = Object::new();
+    // TODO: this ideal type doesn't work on wasm api
+    Reflect::set(
+        &ideal_constraint_false,
+        &"ideal".into(),
+        &JsValue::from_bool(true),
+    )?;
+    match media_option.get() {
+        MediaOption::FileTransfer => {
+            log!("default mode");
+            media_constraints
+                .video(&ideal_constraint_false)
+                .audio(&ideal_constraint_false);
+        }
+        MediaOption::WithAudio => {
+            log!("enable audio");
+            media_constraints
+                .video(&ideal_constraint_false)
+                .audio(&ideal_constraint_true);
+        }
+        MediaOption::WithVideo => {
+            log!("enable video");
+            media_constraints
+                .video(&ideal_constraint_true)
+                .audio(&ideal_constraint_true);
+        }
+    }
+
+    let navigator = get_navigator()?;
+    let media_devices = navigator.media_devices()?;
+    let devices_enum =
+        JsFuture::from(media_devices.enumerate_devices()?)
+            .await?;
+    log!(
+        "devices: {:?}",
+        Array::unchecked_from_js(
+            Object::entries(Object::unchecked_from_js_ref(
+                &devices_enum
+            ))
+            .get(0)
+        )
+    );
+
+    let media_stream = MediaStream::from(
+        JsFuture::from(
+            media_devices.get_user_media_with_constraints(
+                &media_constraints,
+            )?,
+        )
+        .await?,
+    );
+
+    let media_stream_ptr = Rc::new(media_stream);
+
+    set_media_stream.set(Some(media_stream_ptr.clone()));
+
+    Ok(media_stream_ptr)
 }
