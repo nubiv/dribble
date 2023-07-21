@@ -11,7 +11,7 @@ use crate::app::{
 };
 
 #[component]
-pub(crate) fn ChannelPage(cx: Scope) -> impl IntoView {
+pub(crate) fn LobbyPage(cx: Scope) -> impl IntoView {
     let set_app_state =
         use_context::<AppStateContext>(cx).unwrap().1;
     let rtc_pc =

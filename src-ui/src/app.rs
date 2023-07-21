@@ -10,7 +10,7 @@ use web_sys::{MediaStream, RtcPeerConnection};
 
 // use crate::components::{LandingPage, Meeting};
 use crate::pages::{
-    ChannelPage, ConfigPage, LandingPage, LoadingPage,
+    ConfigPage, LandingPage, LoadingPage, LobbyPage,
 };
 
 #[derive(Clone)]
@@ -148,7 +148,7 @@ pub(crate) fn App(cx: Scope) -> impl IntoView {
                     }
                     AppState::Connected => {
                         view! { cx,
-                            <ChannelPage />
+                            <LobbyPage />
                         }
                     }
                     AppState::Loading => {
