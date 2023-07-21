@@ -48,7 +48,7 @@ pub(crate) fn LobbyPage(cx: Scope) -> impl IntoView {
     view! { cx,
         <div class="flex flex-col items-center h-full w-full">
             <button
-                class="bg-blue-400 text-white rounded-lg p-2 mt-8 hover:bg-gray-600"
+                class="bg-blue-400 text-white rounded-lg py-2 px-4 mt-8 hover:bg-gray-600"
                 on:click=on_quit_session
                 >
                 "Quit Session"

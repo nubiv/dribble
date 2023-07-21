@@ -55,13 +55,13 @@ pub(crate) fn LandingPage(cx: Scope) -> impl IntoView {
             </h1>
             <div class="flex flex-col h-[30%]">
                 <button
-                    class="bg-blue-400 text-white rounded-lg p-2 mt-auto mb-2 hover:bg-gray-600"
+                    class="bg-blue-400 text-white rounded-lg py-2 px-4 mt-auto mb-2 hover:bg-gray-600"
                     on:click=on_initiator
                     >
                     "Initiator"
                 </button>
                 <button
-                    class="bg-blue-400 text-white rounded-lg p-2 mb-auto hover:bg-gray-600"
+                    class="bg-blue-400 text-white rounded-lg py-2 px-4 mb-auto hover:bg-gray-600"
                     on:click=on_responder
                     >
                     "Responder"

@@ -149,7 +149,7 @@ pub(crate) fn ResponderConfig(
                 />
 
                 <button
-                    class="bg-blue-400 text-white rounded-lg p-2 mt-8 hover:bg-gray-600"
+                    class="bg-blue-400 text-white rounded-lg py-2 px-8 mt-8 hover:bg-gray-600"
                     on:click=on_remote_sdp_state
                     >
                     "Next"
@@ -174,7 +174,7 @@ pub(crate) fn ResponderConfig(
                 </div>
 
                 <button
-                    class="bg-blue-400 text-white rounded-lg p-2 mt-8 hover:bg-gray-600"
+                    class="bg-blue-400 text-white rounded-lg py-2 px-4 mt-8 hover:bg-gray-600"
                     on:click=on_local_sdp_state
                     >
                     "Generate key"
@@ -200,7 +200,7 @@ pub(crate) fn ResponderConfig(
                 </div>
 
                 <button
-                    class="bg-blue-400 text-white rounded-lg p-2 mt-8 hover:bg-gray-600"
+                    class="bg-blue-400 text-white rounded-lg py-2 px-4 mt-8 hover:bg-gray-600"
                     on:click=on_connect
                     >
                     "Connect"

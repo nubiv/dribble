@@ -391,7 +391,6 @@ pub(crate) async fn init_media_stream(
         &JsValue::from_bool(true),
     )?;
     let ideal_constraint_false = Object::new();
-    // TODO: this ideal type doesn't work on wasm api
     Reflect::set(
         &ideal_constraint_false,
         &"ideal".into(),
