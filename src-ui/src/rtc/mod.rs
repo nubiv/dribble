@@ -11,7 +11,8 @@ use wasm_bindgen::{prelude::Closure, JsCast, JsValue};
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{
     window, MediaStream, MediaStreamConstraints,
-    RtcConfiguration, RtcIceCandidateInit,
+    MessageEvent, RtcConfiguration, RtcDataChannel,
+    RtcDataChannelEvent, RtcIceCandidateInit,
     RtcIceConnectionState, RtcPeerConnection,
     RtcPeerConnectionIceEvent, RtcSdpType,
     RtcSessionDescriptionInit, RtcSignalingState,
@@ -45,15 +46,8 @@ pub(crate) fn init_connection(
 
 pub(crate) async fn create_offer(
     pc: &RtcPeerConnection,
-    // local_stream_ref: NodeRef<Video>,
-    // remote_stream_ref: NodeRef<Video>,
     local_sdp_ref: NodeRef<Textarea>,
-    // rtc_pc: leptos::ReadSignal<Option<RtcPeerConnection>>,
 ) -> Result<(), JsValue> {
-    // track_ice_candidate_event(pc, rtc_pc, local_sdp_ref)?;
-    // track_local_stream(pc, local_stream_ref).await?;
-    // track_remote_stream(pc, remote_stream_ref)?;
-
     let local_offer =
         JsFuture::from(pc.create_offer()).await?;
     let local_offer =
@@ -79,10 +73,7 @@ pub(crate) async fn create_offer(
 pub(crate) async fn answer_offer(
     remote_sdp: &str,
     pc: &RtcPeerConnection,
-    // local_stream_ref: NodeRef<Video>,
-    // remote_stream_ref: NodeRef<Video>,
     local_sdp_ref: NodeRef<Textarea>,
-    // rtc_pc: leptos::ReadSignal<Option<RtcPeerConnection>>,
 ) -> Result<(), JsValue> {
     let splitted: Vec<&str> =
         remote_sdp.split('+').collect();
@@ -113,15 +104,6 @@ pub(crate) async fn answer_offer(
             );
         }
         RtcSignalingState::Stable => {
-            // track_ice_candidate_event(
-            //     pc,
-            //     rtc_pc,
-            //     local_sdp_ref,
-            // )?;
-            // track_local_stream(pc, local_stream_ref)
-            //     .await?;
-            // track_remote_stream(pc, remote_stream_ref)?;
-
             let mut remote_offer =
                 RtcSessionDescriptionInit::new(
                     RtcSdpType::Offer,
@@ -194,7 +176,6 @@ pub(crate) async fn answer_offer(
 
 pub(crate) fn track_ice_candidate_event(
     pc: &RtcPeerConnection,
-    rtc_pc: leptos::ReadSignal<Option<RtcPeerConnection>>,
     local_sdp_ref: NodeRef<Textarea>,
 ) -> Result<(), JsValue> {
     let on_ice_candidate_callback =
@@ -253,21 +234,16 @@ pub(crate) fn track_ice_candidate_event(
                 }
             },
         );
+
+    let pc_clone = pc.clone();
     let on_ice_connection_state_change_callback =
         Closure::<dyn FnMut(_)>::new(
             move |ev: RtcIceConnectionState| {
                 log!("ICE connection state: {:?}", &ev);
 
-                let pc = match rtc_pc.get() {
-                    Some(cn) => cn,
-                    None => {
-                        log!("no connection found");
-                        return;
-                    }
-                };
                 log!(
                     "ice connection state: {:?}",
-                    pc.ice_connection_state()
+                    pc_clone.ice_connection_state()
                 );
             },
         );
@@ -394,19 +370,19 @@ pub(crate) async fn init_media_stream(
     Reflect::set(
         &ideal_constraint_false,
         &"ideal".into(),
-        &JsValue::from_bool(true),
+        &JsValue::from_bool(false),
     )?;
     match media_option.get() {
         MediaOption::FileTransfer => {
             log!("default mode");
             media_constraints
-                .video(&ideal_constraint_false)
-                .audio(&ideal_constraint_false);
+                .video(&JsValue::from_bool(false))
+                .audio(&JsValue::from_bool(false));
         }
         MediaOption::WithAudio => {
             log!("enable audio");
             media_constraints
-                .video(&ideal_constraint_false)
+                .video(&JsValue::from_bool(false))
                 .audio(&ideal_constraint_true);
         }
         MediaOption::WithVideo => {
@@ -446,4 +422,87 @@ pub(crate) async fn init_media_stream(
     set_media_stream.set(Some(media_stream_ptr.clone()));
 
     Ok(media_stream_ptr)
+}
+
+pub(crate) fn setup_datachannel(
+    pc: &RtcPeerConnection,
+    set_dc: leptos::WriteSignal<Option<RtcDataChannel>>,
+) -> Result<(), JsValue> {
+    let dc = pc.create_data_channel("file");
+    log!("dc created: label {:?}", dc.label());
+
+    let dc_clone = dc.clone();
+    let onmessage_callback = Closure::<dyn FnMut(_)>::new(
+        move |ev: MessageEvent| {
+            if let Some(message) = ev.data().as_string() {
+                log!("{:?}", message);
+                dc_clone
+                    .send_with_str("Pong from pc.dc!")
+                    .unwrap();
+            }
+        },
+    );
+    dc.set_onmessage(Some(
+        onmessage_callback.as_ref().unchecked_ref(),
+    ));
+    onmessage_callback.forget();
+
+    track_channel_event(pc)?;
+
+    set_dc.set(Some(dc));
+
+    Ok(())
+}
+
+fn track_channel_event(
+    pc: &RtcPeerConnection,
+) -> Result<(), JsValue> {
+    let ondatachannel_callback =
+        Closure::<dyn FnMut(_)>::new(
+            move |ev: RtcDataChannelEvent| {
+                let dc = ev.channel();
+                log!("pc.ondatachannel!: {:?}", dc.label());
+
+                let onmessage_callback =
+                    Closure::<dyn FnMut(_)>::new(
+                        move |ev: MessageEvent| {
+                            if let Some(message) =
+                                ev.data().as_string()
+                            {
+                                log!("{:?}", message);
+                            }
+                        },
+                    );
+                dc.set_onmessage(Some(
+                    onmessage_callback
+                        .as_ref()
+                        .unchecked_ref(),
+                ));
+                onmessage_callback.forget();
+
+                let dc_clone = dc.clone();
+                let onopen_callback =
+                    Closure::<dyn FnMut()>::new(
+                        move || {
+                            dc_clone
+                                .send_with_str(
+                                    "Ping from pc.dc!",
+                                )
+                                .unwrap();
+                        },
+                    );
+                dc.set_onopen(Some(
+                    onopen_callback
+                        .as_ref()
+                        .unchecked_ref(),
+                ));
+                onopen_callback.forget();
+            },
+        );
+    pc.set_ondatachannel(Some(
+        ondatachannel_callback.as_ref().unchecked_ref(),
+    ));
+    ondatachannel_callback.forget();
+
+    Ok(())
 }

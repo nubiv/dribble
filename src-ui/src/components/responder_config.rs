@@ -6,14 +6,14 @@ use leptos::{
 
 use crate::{
     app::{
-        AppState, AppStateContext, LocalStreamRef,
-        MediaStreamContext, RemoteStreamRef,
-        RtcConnectionContext,
+        AppState, AppStateContext, DataChannelContext,
+        LocalStreamRef, MediaStreamContext,
+        RemoteStreamRef, RtcConnectionContext,
     },
     components::ConfigPanel,
     pages::MediaOption,
     rtc::{
-        answer_offer, init_media_stream,
+        answer_offer, init_media_stream, setup_datachannel,
         track_ice_candidate_event, track_local_stream,
         track_remote_stream,
     },
@@ -40,6 +40,8 @@ pub(crate) fn ResponderConfig(
         use_context::<RtcConnectionContext>(cx).unwrap().0;
     let set_media_stream =
         use_context::<MediaStreamContext>(cx).unwrap().1;
+    let set_dc =
+        use_context::<DataChannelContext>(cx).unwrap().1;
     let local_sdp_ref: NodeRef<Textarea> =
         create_node_ref(cx);
     let remote_sdp_ref: NodeRef<Textarea> =
@@ -54,30 +56,70 @@ pub(crate) fn ResponderConfig(
             leptos::spawn_local(async move {
                 track_ice_candidate_event(
                     &pc,
-                    rtc_pc,
                     local_sdp_ref,
                 )
                 .expect(
                     "failed to track ice candidate event",
                 );
 
-                let media_stream = init_media_stream(
-                    set_media_stream,
-                    media_option,
-                )
-                .await
-                .expect("failed to init media stream");
-                track_local_stream(
-                    &pc,
-                    local_stream_ref,
-                    media_stream,
-                )
-                .await
-                .expect("failed to track local stream");
-                track_remote_stream(&pc, remote_stream_ref)
-                    .expect(
-                        "failed to track remote stream",
-                    );
+                match media_option.get() {
+                    MediaOption::FileTransfer => {
+                        log!("default mode");
+                    }
+                    MediaOption::WithVideo => {
+                        log!("with video");
+                        let media_stream = init_media_stream(
+                                set_media_stream,
+                                media_option,
+                            )
+                            .await
+                            .expect("failed to init media stream");
+                        track_local_stream(
+                            &pc,
+                            local_stream_ref,
+                            media_stream,
+                        )
+                        .await
+                        .expect(
+                            "failed to track local stream",
+                        );
+                        track_remote_stream(
+                            &pc,
+                            remote_stream_ref,
+                        )
+                        .expect(
+                            "failed to track remote stream",
+                        );
+                    }
+                    MediaOption::WithAudio => {
+                        log!("with audio");
+                        let media_stream = init_media_stream(
+                                set_media_stream,
+                                media_option,
+                            )
+                            .await
+                            .expect("failed to init media stream");
+                        track_local_stream(
+                            &pc,
+                            local_stream_ref,
+                            media_stream,
+                        )
+                        .await
+                        .expect(
+                            "failed to track local stream",
+                        );
+                        track_remote_stream(
+                            &pc,
+                            remote_stream_ref,
+                        )
+                        .expect(
+                            "failed to track remote stream",
+                        );
+                    }
+                };
+
+                setup_datachannel(&pc, set_dc)
+                    .expect("failed to setup datachannel");
 
                 set_config_state
                     .set(ConfigState::RemoteSDP);

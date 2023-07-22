@@ -34,5 +34,7 @@ features = [
     "RtcIceConnectionState",
     "RtcTrackEvent",
     "RtcIceCandidateInit",
+    "RtcDataChannel",
+    "RtcDataChannelEvent",
     "Clipboard"
 ]

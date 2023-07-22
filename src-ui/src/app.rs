@@ -6,9 +6,10 @@ use leptos::{
     provide_context, view, IntoView, NodeRef, Scope,
     SignalGet,
 };
-use web_sys::{MediaStream, RtcPeerConnection};
+use web_sys::{
+    MediaStream, RtcDataChannel, RtcPeerConnection,
+};
 
-// use crate::components::{LandingPage, Meeting};
 use crate::pages::{
     ConfigPage, LandingPage, LoadingPage, LobbyPage,
 };
@@ -29,6 +30,12 @@ pub(crate) struct RtcConnectionContext(
 pub(crate) struct MediaStreamContext(
     pub leptos::ReadSignal<Option<Rc<MediaStream>>>,
     pub leptos::WriteSignal<Option<Rc<MediaStream>>>,
+);
+
+#[derive(Clone)]
+pub(crate) struct DataChannelContext(
+    pub leptos::ReadSignal<Option<RtcDataChannel>>,
+    pub leptos::WriteSignal<Option<RtcDataChannel>>,
 );
 
 #[derive(Clone)]
@@ -76,6 +83,8 @@ pub(crate) fn App(cx: Scope) -> impl IntoView {
     >(cx, None);
     let (media_stream, set_media_stream) =
         create_signal::<Option<Rc<MediaStream>>>(cx, None);
+    let (dc, set_dc) =
+        create_signal::<Option<RtcDataChannel>>(cx, None);
     provide_context(
         cx,
         AppStateContext(app_state, set_app_state),
@@ -93,6 +102,7 @@ pub(crate) fn App(cx: Scope) -> impl IntoView {
         cx,
         MediaStreamContext(media_stream, set_media_stream),
     );
+    provide_context(cx, DataChannelContext(dc, set_dc));
 
     let local_stream_ref: NodeRef<Video> =
         create_node_ref(cx);
@@ -159,14 +169,6 @@ pub(crate) fn App(cx: Scope) -> impl IntoView {
                 }
             }
 
-                // <Meeting
-                // local_stream_ref=local_stream_ref
-                // remote_stream_ref=remote_stream_ref
-                // />
-                // <LandingPage
-                // local_stream_ref=local_stream_ref
-                // remote_stream_ref=remote_stream_ref
-                // />
             </main>
     }
 }
