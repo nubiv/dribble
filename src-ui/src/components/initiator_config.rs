@@ -7,11 +7,11 @@ use leptos::{
 use crate::{
     app::{
         AppState, AppStateContext, DataChannelContext,
-        LocalStreamRef, MediaStreamContext,
-        RemoteStreamRef, RtcConnectionContext,
+        LocalStreamRef, MediaOption, MediaOptionContext,
+        MediaStreamContext, RemoteStreamRef,
+        RtcConnectionContext,
     },
     components::ConfigPanel,
-    pages::MediaOption,
     rtc::{
         answer_offer, create_offer, init_media_stream,
         setup_datachannel, track_ice_candidate_event,
@@ -27,11 +27,7 @@ enum ConfigState {
 }
 
 #[component]
-pub(crate) fn InitiatorConfig(
-    cx: Scope,
-    media_option: leptos::ReadSignal<MediaOption>,
-    set_media_option: leptos::WriteSignal<MediaOption>,
-) -> impl IntoView {
+pub(crate) fn InitiatorConfig(cx: Scope) -> impl IntoView {
     let set_app_state =
         use_context::<AppStateContext>(cx).unwrap().1;
     let (config_state, set_config_state) =
@@ -50,6 +46,8 @@ pub(crate) fn InitiatorConfig(
         use_context::<LocalStreamRef>(cx).unwrap().0;
     let remote_stream_ref =
         use_context::<RemoteStreamRef>(cx).unwrap().0;
+    let media_option =
+        use_context::<MediaOptionContext>(cx).unwrap().0;
 
     let on_generate_key = move |_| {
         match rtc_pc.get() {
@@ -189,9 +187,7 @@ pub(crate) fn InitiatorConfig(
                     _ => "none",
                 }
             >
-                <ConfigPanel
-                    set_media_option=set_media_option
-                />
+                <ConfigPanel />
 
                 <button
                     class="bg-blue-400 text-white rounded-lg py-2 px-4 mt-8 hover:bg-gray-600"

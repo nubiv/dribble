@@ -1,16 +1,16 @@
 use leptos::{
-    component, event_target_value, view, IntoView, Scope,
-    SignalSet,
+    component, event_target_value, use_context, view,
+    IntoView, Scope, SignalSet,
 };
 use web_sys::Event;
 
-use crate::pages::MediaOption;
+use crate::app::{MediaOption, MediaOptionContext};
 
 #[component]
-pub(crate) fn ConfigPanel(
-    cx: Scope,
-    set_media_option: leptos::WriteSignal<MediaOption>,
-) -> impl IntoView {
+pub(crate) fn ConfigPanel(cx: Scope) -> impl IntoView {
+    let set_media_option =
+        use_context::<MediaOptionContext>(cx).unwrap().1;
+
     let on_select = move |e: Event| {
         let value = event_target_value(&e);
 

@@ -19,7 +19,7 @@ use web_sys::{
     RtcTrackEvent,
 };
 
-use crate::pages::MediaOption;
+use crate::app::MediaOption;
 
 pub(crate) fn init_connection(
 ) -> Result<RtcPeerConnection, JsValue> {

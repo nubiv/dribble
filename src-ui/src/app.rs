@@ -45,6 +45,12 @@ pub(crate) struct AppStateContext(
 );
 
 #[derive(Clone)]
+pub(crate) struct MediaOptionContext(
+    pub leptos::ReadSignal<MediaOption>,
+    pub leptos::WriteSignal<MediaOption>,
+);
+
+#[derive(Clone)]
 pub(crate) struct RoleContext(
     pub leptos::ReadSignal<Role>,
     pub leptos::WriteSignal<Role>,
@@ -70,6 +76,14 @@ pub(crate) enum Role {
     Responder,
 }
 
+#[derive(Clone, Default)]
+pub(crate) enum MediaOption {
+    #[default]
+    FileTransfer,
+    WithVideo,
+    WithAudio,
+}
+
 #[component]
 pub(crate) fn App(cx: Scope) -> impl IntoView {
     let (app_state, set_app_state) =
@@ -83,11 +97,17 @@ pub(crate) fn App(cx: Scope) -> impl IntoView {
     >(cx, None);
     let (media_stream, set_media_stream) =
         create_signal::<Option<Rc<MediaStream>>>(cx, None);
+    let (media_option, set_media_option) =
+        create_signal(cx, MediaOption::default());
     let (dc, set_dc) =
         create_signal::<Option<RtcDataChannel>>(cx, None);
     provide_context(
         cx,
         AppStateContext(app_state, set_app_state),
+    );
+    provide_context(
+        cx,
+        MediaOptionContext(media_option, set_media_option),
     );
     provide_context(cx, RoleContext(role, set_role));
     provide_context(
@@ -117,7 +137,12 @@ pub(crate) fn App(cx: Scope) -> impl IntoView {
             <div
                 class="grid grid-cols-2 gap-0 w-full h-auto mt-[10%]"
                 style:display=move || match app_state.get() {
-                    AppState::Connected => "grid",
+                    AppState::Connected => {
+                        match media_option.get() {
+                            MediaOption::WithVideo => "grid",
+                            _ => "none"
+                        }
+                    },
                     _ => "none",
                 }
             >
