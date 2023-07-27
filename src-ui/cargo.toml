@@ -15,6 +15,11 @@ js-sys = "0.3"
 base64 = "0.21"
 console_error_panic_hook = "0.1"
 
+tauri-sys = { git = "https://github.com/JonasKruckenberg/tauri-sys", features = [
+    "all",
+] }
+futures = "0.3"
+
 [dependencies.web-sys]
 version = "0.3"
 features = [
@@ -36,5 +41,10 @@ features = [
     "RtcIceCandidateInit",
     "RtcDataChannel",
     "RtcDataChannelEvent",
-    "Clipboard"
+    "Clipboard",
+    "HtmlInputElement",
+    "FileReader",
+    "File",
+    "FileList",
+    "Blob",
 ]

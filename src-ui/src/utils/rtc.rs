@@ -19,7 +19,12 @@ use web_sys::{
     RtcTrackEvent,
 };
 
-use crate::app::MediaOption;
+use crate::{
+    app::MediaOption,
+    utils::tauri_ipc::{
+        emit_file_data, invoke_receive_file,
+    },
+};
 
 pub(crate) fn init_connection(
 ) -> Result<RtcPeerConnection, JsValue> {
@@ -463,16 +468,62 @@ fn track_channel_event(
                 let dc = ev.channel();
                 log!("pc.ondatachannel!: {:?}", dc.label());
 
-                let onmessage_callback =
-                    Closure::<dyn FnMut(_)>::new(
-                        move |ev: MessageEvent| {
-                            if let Some(message) =
-                                ev.data().as_string()
-                            {
-                                log!("{:?}", message);
+                let onmessage_callback = Closure::<
+                    dyn FnMut(_),
+                >::new(
+                    move |ev: MessageEvent| {
+                        let data = ev.data();
+                        log!("data: {:?}", data);
+                        // if let Some(message) =
+                        //     ev.data().as_string()
+                        // {
+                        //     log!("{:?}", message);
+                        // }
+
+                        // let js_type = data.js_typeof();
+                        // log!("js type: {:?}", js_type);
+                        match data.is_instance_of::<js_sys::ArrayBuffer>() {
+                            true => {
+                                log!("view received");
+                                // let view = js_sys::Uint32Array::new_with_length(1025);
+                                // view.set(&data, 0);
+                                let view = js_sys::Uint8Array::new(&data);
+                                log!("view: {:?}", view);
+                                log!("view length: {}", view.length());
+                                log!("view byte length: {:?}", view.byte_length());
+                                let idx = view.get_index(0);
+                                log!("view idx: {:?}", idx);
+                                let u8_array = view.to_vec();
+                                log!("utf32: {:?}", u8_array);
+
+                                match idx {
+                                    0 => {
+                                        log!("file transfer start");
+                                        leptos::spawn_local(async move {
+                                            invoke_receive_file(u8_array).await.unwrap();
+                                        })
+                                    }
+                                    _ => {
+                                        leptos::spawn_local(async move {
+                                            emit_file_data(u8_array)
+                                                .await
+                                                .unwrap();
+                                        })
+
+                                    }
+                                }
+
                             }
-                        },
-                    );
+                            false => {
+                                if let Some(msg) =
+                                    data.as_string()
+                                {
+                                    log!("string: {}", msg);
+                                };
+                            }
+                        }
+                    },
+                );
                 dc.set_onmessage(Some(
                     onmessage_callback
                         .as_ref()

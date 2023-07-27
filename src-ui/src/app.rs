@@ -135,7 +135,7 @@ pub(crate) fn App(cx: Scope) -> impl IntoView {
             <main class="flex flex-col items-center w-screen h-screen p-2">
 
             <div
-                class="grid grid-cols-2 gap-0 w-full h-auto mt-[10%]"
+                class="grid grid-cols-2 gap-0 w-full h-auto mt-auto"
                 style:display=move || match app_state.get() {
                     AppState::Connected => {
                         match media_option.get() {
@@ -149,7 +149,7 @@ pub(crate) fn App(cx: Scope) -> impl IntoView {
                 <div class="col-span-1">
                     <video
                         node_ref=local_stream_ref
-                        class="w-full p-3"
+                        class="w-full px-3"
                         autoplay
                         controls
                     >
@@ -160,7 +160,7 @@ pub(crate) fn App(cx: Scope) -> impl IntoView {
                 <div class="col-span-1">
                     <video
                         node_ref=remote_stream_ref
-                        class="w-full p-3"
+                        class="w-full px-3"
                         autoplay
                         controls
                     >
@@ -174,6 +174,7 @@ pub(crate) fn App(cx: Scope) -> impl IntoView {
                     AppState::Stable => {
                         view! { cx,
                             <LandingPage />
+                            // <LobbyPage />
                         }
                     }
                     AppState::Connecting => {

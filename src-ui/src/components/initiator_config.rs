@@ -12,7 +12,7 @@ use crate::{
         RtcConnectionContext,
     },
     components::ConfigPanel,
-    rtc::{
+    utils::rtc::{
         answer_offer, create_offer, init_media_stream,
         setup_datachannel, track_ice_candidate_event,
         track_local_stream, track_remote_stream,

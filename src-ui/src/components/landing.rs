@@ -7,7 +7,7 @@ use leptos::{
 use web_sys::window;
 
 use crate::app::{InMeetingContext, RtcConnectionContext};
-use crate::rtc::{
+use crate::utils::rtc::{
     answer_offer, create_offer, init_connection,
 };
 

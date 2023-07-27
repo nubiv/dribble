@@ -1,6 +1,6 @@
 use leptos::{
-    component, create_signal, use_context, view, IntoView,
-    Scope, SignalGet,
+    component, use_context, view, IntoView, Scope,
+    SignalGet,
 };
 
 use crate::{

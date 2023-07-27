@@ -8,7 +8,7 @@ use crate::{
         AppState, AppStateContext, Role, RoleContext,
         RtcConnectionContext,
     },
-    rtc::init_connection,
+    utils::rtc::init_connection,
 };
 
 #[component]

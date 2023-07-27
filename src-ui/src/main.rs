@@ -1,8 +1,7 @@
 mod app;
 mod components;
 mod pages;
-mod rtc;
-mod tauri_ipc;
+mod utils;
 
 use app::App;
 use leptos::{mount_to_body, view};

@@ -7,7 +7,7 @@ use wasm_bindgen::JsCast;
 use web_sys::MediaStreamTrack;
 
 use crate::app::{InMeetingContext, RtcConnectionContext};
-use crate::rtc::track_display_stream;
+use crate::utils::rtc::track_display_stream;
 
 #[component]
 pub fn Meeting(
