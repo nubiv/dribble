@@ -8,14 +8,16 @@ mod commands;
 mod file_transfer;
 
 use commands::{
-    __cmd__open_file_folder, __cmd__send_file,
-    open_file_folder, send_file,
+    __cmd__open_file_folder, __cmd__receive_file,
+    __cmd__send_file, open_file_folder, receive_file,
+    send_file,
 };
 
 fn main() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
             send_file,
+            receive_file,
             open_file_folder
         ])
         .run(tauri::generate_context!())
