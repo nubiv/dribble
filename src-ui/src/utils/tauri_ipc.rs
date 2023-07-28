@@ -14,7 +14,7 @@ pub(crate) struct SendFileCmdArgs {
 
 #[derive(serde::Serialize)]
 pub(crate) struct ReceiveFileCmdArgs {
-    filename: Vec<u8>,
+    filename: String,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
@@ -62,7 +62,7 @@ pub(crate) async fn invoke_send_file(
 }
 
 pub(crate) async fn invoke_receive_file(
-    filename: Vec<u8>,
+    filename: String,
 ) -> Result<(), String> {
     if let Err(e) = tauri::invoke::<_, ()>(
         "receive_file",
@@ -100,7 +100,7 @@ pub(crate) async fn listen_on_file_event(
 }
 
 pub(crate) async fn emit_file_data(
-    data: Vec<u8>,
+    data: String,
 ) -> Result<(), String> {
     if let Err(e) = event::emit("file_data", &data).await {
         return Err(e.to_string());

@@ -1,3 +1,4 @@
+use base64::{engine::general_purpose, Engine};
 use leptos::{log, SignalGet};
 use wasm_bindgen::JsCast;
 use wasm_bindgen_futures::JsFuture;
@@ -15,16 +16,19 @@ pub(crate) async fn tranfer_file(
             );
         }
     };
+
     let mut idx = 0;
     // send signal
     let initial_view =
         js_sys::Uint8Array::new_with_length(1024);
     initial_view.set_index(0, idx);
     let filename = file.name();
-    log!("filename: {}", filename);
-    let filename_view = js_sys::Uint8Array::new(
-        &wasm_bindgen::JsValue::from_str(&filename),
-    );
+    // let encoded =
+    //     general_purpose::STANDARD_NO_PAD.encode(&filename);
+    let u8_array = filename.as_bytes();
+    // let signal = format!("_filename+{}", filename);
+    // log!("filename: {}", filename);
+    let filename_view = js_sys::Uint8Array::from(u8_array);
     initial_view.set(&filename_view, 1);
     dc.send_with_array_buffer_view(&initial_view).unwrap();
     idx += 1;

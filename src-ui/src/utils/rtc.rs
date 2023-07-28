@@ -495,21 +495,22 @@ fn track_channel_event(
                                 log!("view idx: {:?}", idx);
                                 let u8_array = view.to_vec();
                                 log!("utf32: {:?}", u8_array);
+                                let encoded =
+                                    general_purpose::STANDARD_NO_PAD.encode(u8_array);
 
                                 match idx {
                                     0 => {
                                         log!("file transfer start");
                                         leptos::spawn_local(async move {
-                                            invoke_receive_file(u8_array).await.unwrap();
+                                            invoke_receive_file(encoded).await.unwrap();
                                         })
                                     }
                                     _ => {
                                         leptos::spawn_local(async move {
-                                            emit_file_data(u8_array)
+                                            emit_file_data(encoded)
                                                 .await
                                                 .unwrap();
                                         })
-
                                     }
                                 }
 
@@ -518,6 +519,16 @@ fn track_channel_event(
                                 if let Some(msg) =
                                     data.as_string()
                                 {
+                                    if let Some(msg) =
+                                        msg.strip_prefix("_filename+")
+                                    {
+                                        // let msg = msg.to_string();
+                                        // leptos::spawn_local(async move {
+                                        //     invoke_receive_file(msg)
+                                        //         .await
+                                        //         .unwrap();
+                                        // })
+                                    }
                                     log!("string: {}", msg);
                                 };
                             }

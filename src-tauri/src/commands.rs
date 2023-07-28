@@ -1,5 +1,7 @@
 use std::io::Write;
 
+use base64::{engine::general_purpose, Engine};
+
 use crate::file_transfer::file_transfer;
 
 #[tauri::command]
@@ -16,23 +18,35 @@ pub(crate) fn send_file(
 #[tauri::command]
 pub(crate) fn receive_file(
     window: tauri::Window,
-    filename: Vec<u8>,
+    filename: String,
 ) -> Result<(), String> {
     // println!("receive file chunks: {}", &chunk_count);
-    let filename = String::from_utf8(
-        filename.split_first().unwrap().1.to_vec(),
-    )
-    .unwrap();
+    // let filename = String::from_utf8(
+    //     filename.split_first().unwrap().1.to_vec(),
+    // )
+    // .unwrap();
+    let filename_64 = general_purpose::STANDARD_NO_PAD
+        .decode(&filename)
+        .unwrap();
+    if let Some((_, filename)) = filename_64.split_first() {
+        println!(
+            "filename: {}",
+            String::from_utf8(filename.to_vec()).unwrap()
+        );
+    }
     println!("filename: {}", filename);
     // TODO: save filename to global state
 
     let listener = window.listen("file_data", move |ev| {
         let payload = ev.payload().unwrap();
-        let u8_arr = Vec::<u8>::from(payload);
+        let u8_arr = general_purpose::STANDARD_NO_PAD
+            .decode(payload)
+            .unwrap();
+        // let u8_arr = Vec::<u8>::from(payload);
         // println!("file data: {:?}", u8_arr);
 
         // TODO: assemble file
-        assemble_file(u8_arr).unwrap();
+        assemble_file(&u8_arr).unwrap();
     });
 
     // TODO: manage listener in global state, so that we can unlisten after file transfer is done
@@ -41,7 +55,7 @@ pub(crate) fn receive_file(
     Ok(())
 }
 
-fn assemble_file(u8_arr: Vec<u8>) -> Result<(), String> {
+fn assemble_file(u8_arr: &[u8]) -> Result<(), String> {
     println!("chunk: {:?}", u8_arr);
 
     let mut file = std::fs::OpenOptions::new()
@@ -49,7 +63,7 @@ fn assemble_file(u8_arr: Vec<u8>) -> Result<(), String> {
         .append(true)
         .open("test.txt")
         .unwrap();
-    file.write_all(&u8_arr).unwrap();
+    file.write_all(u8_arr).unwrap();
 
     Ok(())
 }
