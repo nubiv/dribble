@@ -1,8 +1,6 @@
-use base64::{engine::general_purpose, Engine};
 use leptos::{log, SignalGet};
 use wasm_bindgen::JsCast;
-use wasm_bindgen_futures::JsFuture;
-use web_sys::{Blob, RtcDataChannel};
+use web_sys::RtcDataChannel;
 
 pub(crate) async fn tranfer_file(
     file: web_sys::File,
@@ -19,23 +17,30 @@ pub(crate) async fn tranfer_file(
 
     let blob_size = file.size();
     let chunk_size = 8192.0;
-    let chunk_count = (blob_size / chunk_size).ceil() as u8;
+    let chunk_count = (blob_size / chunk_size).ceil();
     let chunk_count =
-        if chunk_count == 0 { 1 } else { chunk_count };
-    log!("chunk count: {}", chunk_count);
+        if chunk_count == 0.0 { 1.0 } else { chunk_count };
 
+    // let multiplier = (chunk_count / 256.0).floor();
+    // let modulo = chunk_count / 256.0;
+    log!("chunk count: {}", chunk_count);
     let mut idx = 0;
+
     // send signal
     let initial_view =
         js_sys::Uint8Array::new_with_length(1024);
     initial_view.set_index(0, idx);
-    initial_view.set_index(1, chunk_count);
+
+    // let chunk_count_view =
+    //     js_sys::Uint8Array::new_with_length(3);
+    // chunk_count_view.set_index(0, 0);
+    // chunk_count_view.set_index(1, multiplier as u8);
+    // chunk_count_view.set_index(2, modulo as u8);
+    // initial_view.set(&chunk_count_view, 1);
+    initial_view.set_index(1, chunk_count as u8);
+
     let filename = file.name();
-    // let encoded =
-    //     general_purpose::STANDARD_NO_PAD.encode(&filename);
     let u8_array = filename.as_bytes();
-    // let signal = format!("_filename+{}", filename);
-    // log!("filename: {}", filename);
     let filename_view = js_sys::Uint8Array::from(u8_array);
     let filename_u8_length = filename_view.length();
     initial_view.set_index(2, filename_u8_length as u8);
@@ -43,27 +48,9 @@ pub(crate) async fn tranfer_file(
     dc.send_with_array_buffer_view(&initial_view).unwrap();
     idx += 1;
 
+    // send file chunks
     let mut slice_start = 0.0;
-    // let mut idx = 0;
-
     while slice_start <= blob_size {
-        /*
-        new ArrayBuffer(buffer.byte_length + idx)
-        new DataView(arrayBuffer, 0, 1024)
-         */
-
-        let view =
-            js_sys::Uint8Array::new_with_length(1025);
-
-        // let chunk = file
-        //     .slice_with_f64_and_f64(0.0, chunk_size)
-        //     .unwrap()
-        //     .array_buffer();
-        // let chunk = JsFuture::from(chunk)
-        //     .await
-        //     .unwrap()
-        //     .dyn_into::<js_sys::ArrayBuffer>()
-        //     .unwrap();
         let chunk = file
             .slice_with_f64_and_f64(
                 slice_start,
@@ -71,14 +58,7 @@ pub(crate) async fn tranfer_file(
             )
             .unwrap();
         log!("chunk size: {:?}", chunk.size());
-        // let chunk_view = js_sys::Uint32Array::new(&chunk);
 
-        // let u32_array = chunk_view.to_vec();
-        // log!("u32 array: {:?}", u32_array);
-        // log!("index: {}", idx);
-        // view.set_index(0, idx);
-        // view.set(&chunk, 1);
-        // log!("view.0: {:?}", view.get_index(0));
         let fr = web_sys::FileReader::new().unwrap();
         let dc_clone = dc.clone();
         let onload = wasm_bindgen::closure::Closure::wrap(
@@ -98,16 +78,6 @@ pub(crate) async fn tranfer_file(
                     2 => {
                         let data =
                             element.result().unwrap();
-                        // let blob = data
-                        // .dyn_into::<js_sys::ArrayBuffer>()
-                        // .unwrap();
-                        // log!("blob: {:?}", blob);
-                        // let chunk_view =
-                        //     js_sys::Uint32Array::new(&blob);
-
-                        // let u32_array = chunk_view.to_vec();
-                        // log!("u32 array: {:?}", u32_array);
-
                         let view =
                             js_sys::Uint8Array::new_with_length(
                                 8193
@@ -134,38 +104,10 @@ pub(crate) async fn tranfer_file(
                             )
                             .unwrap();
 
-                        let u8_array = view.to_vec();
-
                         element.abort();
                     }
                     _ => unreachable!(),
                 };
-                // let blob: web_sys::Blob =
-                //     data.into();
-                // log!("blob: {:?}", blob);
-                // let file_string = data
-                //     .dyn_into::<web_sys::Blob>()
-                //     .unwrap();
-                // let file_vec: Vec<u8> =
-                //     file_string
-                //         .iter()
-                //         .map(|x| x as u8)
-                //         .collect();
-                // log!(
-                //     "file read: {:?}",
-                //     file_string
-                // );
-
-                // let dc = match dc.get() {
-                //     Some(dc) => dc,
-                //     None => {
-                //         log!("data channel not found");
-                //         return;
-                //     }
-                // };
-
-                // dc.send_with_blob(&data.into())
-                //     .unwrap();
             }) as Box<dyn FnMut(_)>,
         );
         fr.set_onloadend(Some(
@@ -175,29 +117,7 @@ pub(crate) async fn tranfer_file(
 
         fr.read_as_array_buffer(&chunk).unwrap();
 
-        // log!("view: {:?}", view);
-        // log!("chunk: {:?}", chunk.byte_length());
-        // let dataview =
-        //     js_sys::DataView::new(&chunk, 0, 1024);
-        // dataview.set_uint8(0, 1);
-        // log!("data view: {:?}", dataview);
-        // log!("chunk: {:?}", chunk.size());
-        // log!("chunk: {:?}", chunk);
         slice_start += chunk_size;
-        // log!("remaining chunk: {}", remaining_chunk);
-        // fr.read_as_text(&chunk).unwrap()
-        // let dc = match dc.get() {
-        //     Some(dc) => dc,
-        //     None => {
-        //         log!("data channel not found");
-        //         return Err(
-        //             "data channel not found".to_string()
-        //         );
-        //     }
-        // };
-
-        // dc.send_with_array_buffer_view(&view).unwrap();
-        // idx += 1;
         idx += 1;
     }
     Ok(())

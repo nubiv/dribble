@@ -25,17 +25,10 @@ pub(crate) fn receive_file(
     filename: String,
     state: tauri::State<FileTransferState>,
 ) -> Result<(), String> {
-    // println!("receive file chunks: {}", &chunk_count);
-    // let filename = String::from_utf8(
-    //     filename.split_first().unwrap().1.to_vec(),
-    // )
-    // .unwrap();
-    println!("window: {}", window.label());
     let filename_u8 = general_purpose::STANDARD_NO_PAD
         .decode(filename)
         .unwrap();
     println!("filename_u8: {:?}", filename_u8);
-    // if let Some((_, filename)) = filename_u8.split_at(2) {
     let (header, filename) = filename_u8.split_at(3);
     let chunk_count = header[1];
     println!("chunk count: {}", chunk_count);
@@ -45,6 +38,12 @@ pub(crate) fn receive_file(
     let filename =
         String::from_utf8(filename.to_vec()).unwrap();
     println!("filename: {}", filename);
+    let files_path = get_file_path(&app_handle).unwrap();
+    let file_path = files_path.join(&filename);
+    if std::fs::File::open(file_path).is_ok() {
+        return Err("file already exists".to_string());
+    };
+
     let mut filename_guard =
         state.filename.try_lock().unwrap();
     *filename_guard = Some(filename);
@@ -52,9 +51,6 @@ pub(crate) fn receive_file(
     state
         .progress
         .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-    // }
-    // println!("filename: {}", filename);
-    // TODO: save filename to global state
 
     let listener = window.listen("file_data", move |ev| {
         println!("receiving chunks...");
@@ -83,7 +79,6 @@ pub(crate) fn receive_file(
             );
 
             if progress == *idx {
-                // TODO: assemble file
                 let files_path =
                     get_file_path(&app_handle).unwrap();
                 assemble_file(
@@ -116,15 +111,11 @@ pub(crate) fn receive_file(
                 }
             }
         };
-        // let u8_arr = Vec::<u8>::from(payload);
-        // println!("file data: {:?}", u8_arr);
     });
 
-    // TODO: manage listener in global state, so that we can unlisten after file transfer is done
     let mut event_listener_guard =
         state.event_listener.try_lock().unwrap();
     *event_listener_guard = Some(listener);
-    // window.unlisten(listener);
 
     Ok(())
 }
@@ -132,12 +123,13 @@ pub(crate) fn receive_file(
 fn assemble_file(
     u8_arr: &[u8],
     filename: &str,
-    files_path: &std::path::PathBuf,
+    files_path: &std::path::Path,
 ) -> Result<(), String> {
     println!("chunk: {:?}", u8_arr);
     let file_path = files_path.join(filename);
 
     let mut file = std::fs::OpenOptions::new()
+        .create(true)
         .write(true)
         .append(true)
         .open(file_path)

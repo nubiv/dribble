@@ -7,10 +7,7 @@
 mod commands;
 mod file_transfer;
 
-use std::{
-    cell::{Cell, RefCell},
-    sync::atomic::AtomicU8,
-};
+use std::sync::atomic::AtomicU8;
 
 use commands::{
     __cmd__open_file_folder, __cmd__receive_file,

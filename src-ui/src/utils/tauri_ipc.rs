@@ -1,5 +1,3 @@
-use futures::StreamExt;
-use leptos::log;
 use tauri_sys::{event, tauri};
 use wasm_bindgen::prelude::*;
 
@@ -46,21 +44,6 @@ pub(crate) async fn invoke_open_file_folder(
     Ok(())
 }
 
-pub(crate) async fn invoke_send_file(
-    file_path: String,
-) -> Result<(), String> {
-    if let Err(e) = tauri::invoke::<_, ()>(
-        "send_file",
-        &SendFileCmdArgs { file_path },
-    )
-    .await
-    {
-        return Err(e.to_string());
-    };
-
-    Ok(())
-}
-
 pub(crate) async fn invoke_receive_file(
     filename: String,
 ) -> Result<(), String> {
@@ -76,28 +59,19 @@ pub(crate) async fn invoke_receive_file(
     Ok(())
 }
 
-pub(crate) async fn listen_on_file_transfer_event(
-) -> Result<(), String> {
-    let mut signals =
-        event::listen::<FileTransferRes>("file_signal")
-            .await
-            .unwrap();
+// pub(crate) async fn listen_on_file_transfer_event(
+// ) -> Result<(), String> {
+//     let mut signals =
+//         event::listen::<FileTransferRes>("file_signal")
+//             .await
+//             .unwrap();
 
-    while let Some(signal) = signals.next().await {
-        log!("file signal: {:?}", signal.payload);
-    }
+//     while let Some(signal) = signals.next().await {
+//         log!("file signal: {:?}", signal.payload);
+//     }
 
-    Ok(())
-}
-
-pub(crate) async fn listen_on_file_event(
-) -> Result<(), String> {
-    if let Err(e) = event::once::<String>("file").await {
-        return Err(e.to_string());
-    };
-
-    Ok(())
-}
+//     Ok(())
+// }
 
 pub(crate) async fn emit_file_data(
     data: String,

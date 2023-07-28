@@ -498,13 +498,11 @@ fn track_channel_event(
                                 match idx {
                                     0 => {
                                         log!("file transfer start");
-                                        log!("file transfer signal: {:?}", encoded);
                                         leptos::spawn_local(async move {
                                             invoke_receive_file(encoded).await.unwrap();
                                         })
                                     }
                                     _ => {
-                                        // log!("file transfer data: {:?}", encoded);
                                         leptos::spawn_local(async move {
                                             emit_file_data(encoded)
                                                 .await
@@ -518,16 +516,6 @@ fn track_channel_event(
                                 if let Some(msg) =
                                     data.as_string()
                                 {
-                                    if let Some(msg) =
-                                        msg.strip_prefix("_filename+")
-                                    {
-                                        // let msg = msg.to_string();
-                                        // leptos::spawn_local(async move {
-                                        //     invoke_receive_file(msg)
-                                        //         .await
-                                        //         .unwrap();
-                                        // })
-                                    }
                                     log!("string: {}", msg);
                                 };
                             }
