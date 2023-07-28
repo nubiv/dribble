@@ -17,11 +17,17 @@ pub(crate) async fn tranfer_file(
         }
     };
 
+    let blob_size = file.size();
+    let chunk_size = 8192.0;
+    let chunk_count = (blob_size / chunk_size).ceil() as u8;
+    log!("chunk count: {}", chunk_count);
+
     let mut idx = 0;
     // send signal
     let initial_view =
         js_sys::Uint8Array::new_with_length(1024);
     initial_view.set_index(0, idx);
+    initial_view.set_index(1, chunk_count);
     let filename = file.name();
     // let encoded =
     //     general_purpose::STANDARD_NO_PAD.encode(&filename);
@@ -29,14 +35,9 @@ pub(crate) async fn tranfer_file(
     // let signal = format!("_filename+{}", filename);
     // log!("filename: {}", filename);
     let filename_view = js_sys::Uint8Array::from(u8_array);
-    initial_view.set(&filename_view, 1);
+    initial_view.set(&filename_view, 2);
     dc.send_with_array_buffer_view(&initial_view).unwrap();
     idx += 1;
-
-    let blob_size = file.size();
-    let chunk_size = 8192.0;
-    let chunk_count = (blob_size / chunk_size).ceil() as u8;
-    log!("chunk count: {}", chunk_count);
 
     let mut slice_start = 0.0;
     // let mut idx = 0;

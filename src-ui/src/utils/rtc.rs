@@ -494,9 +494,10 @@ fn track_channel_event(
                                 let idx = view.get_index(0);
                                 log!("view idx: {:?}", idx);
                                 let u8_array = view.to_vec();
-                                log!("utf32: {:?}", u8_array);
+                                log!("utf8: {:?}", u8_array);
                                 let encoded =
                                     general_purpose::STANDARD_NO_PAD.encode(u8_array);
+                                log!("encoded: {:?}", encoded);
 
                                 match idx {
                                     0 => {
@@ -506,6 +507,7 @@ fn track_channel_event(
                                         })
                                     }
                                     _ => {
+                                        // log!("file transfer data: {:?}", encoded);
                                         leptos::spawn_local(async move {
                                             emit_file_data(encoded)
                                                 .await
