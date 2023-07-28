@@ -473,7 +473,6 @@ fn track_channel_event(
                 >::new(
                     move |ev: MessageEvent| {
                         let data = ev.data();
-                        log!("data: {:?}", data);
                         // if let Some(message) =
                         //     ev.data().as_string()
                         // {
@@ -488,9 +487,6 @@ fn track_channel_event(
                                 // let view = js_sys::Uint32Array::new_with_length(1025);
                                 // view.set(&data, 0);
                                 let view = js_sys::Uint8Array::new(&data);
-                                log!("view: {:?}", view);
-                                log!("view length: {}", view.length());
-                                log!("view byte length: {:?}", view.byte_length());
                                 let idx = view.get_index(0);
                                 log!("view idx: {:?}", idx);
                                 let u8_array = view.to_vec();
@@ -502,6 +498,7 @@ fn track_channel_event(
                                 match idx {
                                     0 => {
                                         log!("file transfer start");
+                                        log!("file transfer signal: {:?}", encoded);
                                         leptos::spawn_local(async move {
                                             invoke_receive_file(encoded).await.unwrap();
                                         })

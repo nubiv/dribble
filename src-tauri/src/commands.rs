@@ -34,10 +34,14 @@ pub(crate) fn receive_file(
     let filename_u8 = general_purpose::STANDARD_NO_PAD
         .decode(filename)
         .unwrap();
+    println!("filename_u8: {:?}", filename_u8);
     // if let Some((_, filename)) = filename_u8.split_at(2) {
-    let (header, filename) = filename_u8.split_at(2);
+    let (header, filename) = filename_u8.split_at(3);
     let chunk_count = header[1];
     println!("chunk count: {}", chunk_count);
+    let filename_u8_length = header[2];
+    let (filename, _) =
+        filename.split_at(filename_u8_length as usize);
     let filename =
         String::from_utf8(filename.to_vec()).unwrap();
     println!("filename: {}", filename);

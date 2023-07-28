@@ -20,6 +20,8 @@ pub(crate) async fn tranfer_file(
     let blob_size = file.size();
     let chunk_size = 8192.0;
     let chunk_count = (blob_size / chunk_size).ceil() as u8;
+    let chunk_count =
+        if chunk_count == 0 { 1 } else { chunk_count };
     log!("chunk count: {}", chunk_count);
 
     let mut idx = 0;
@@ -35,7 +37,9 @@ pub(crate) async fn tranfer_file(
     // let signal = format!("_filename+{}", filename);
     // log!("filename: {}", filename);
     let filename_view = js_sys::Uint8Array::from(u8_array);
-    initial_view.set(&filename_view, 2);
+    let filename_u8_length = filename_view.length();
+    initial_view.set_index(2, filename_u8_length as u8);
+    initial_view.set(&filename_view, 3);
     dc.send_with_array_buffer_view(&initial_view).unwrap();
     idx += 1;
 
@@ -131,7 +135,6 @@ pub(crate) async fn tranfer_file(
                             .unwrap();
 
                         let u8_array = view.to_vec();
-                        log!("u8 array: {:?}", u8_array);
 
                         element.abort();
                     }
