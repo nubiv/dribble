@@ -7,7 +7,7 @@
 mod commands;
 mod file_transfer;
 
-use std::sync::atomic::AtomicU8;
+use std::sync::atomic::AtomicU32;
 
 use commands::{
     __cmd__open_file_folder, __cmd__receive_file,
@@ -20,7 +20,7 @@ use tauri::Manager;
 #[derive(Default)]
 struct FileTransferState {
     filename: Mutex<Option<String>>,
-    progress: AtomicU8,
+    progress: AtomicU32,
     event_listener: Mutex<Option<tauri::EventHandler>>,
 }
 

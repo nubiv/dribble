@@ -28,23 +28,30 @@ pub(crate) async fn tranfer_file(
 
     // send signal
     let initial_view =
-        js_sys::Uint8Array::new_with_length(1024);
-    initial_view.set_index(0, idx);
+        js_sys::Uint8Array::new_with_length(chunk_size as u32);
+    initial_view.set_index(0, idx as u8);
 
-    // let chunk_count_view =
-    //     js_sys::Uint8Array::new_with_length(3);
-    // chunk_count_view.set_index(0, 0);
-    // chunk_count_view.set_index(1, multiplier as u8);
-    // chunk_count_view.set_index(2, modulo as u8);
-    // initial_view.set(&chunk_count_view, 1);
-    initial_view.set_index(1, chunk_count as u8);
+    // let count_str = chunk_count.to_string();
+    // let count_u8_arr = count_str.as_bytes();
+    // let count_view = js_sys::Uint8Array::from(count_u8_arr);
+    // let count_view_len = count_view.length() as u8;
+    let (count_view, count_view_len) = u8_arr(chunk_count);
+    initial_view.set(&count_view, 1);
+    // initial_view.set_index(1, chunk_count as u8);
 
-    let filename = file.name();
-    let u8_array = filename.as_bytes();
-    let filename_view = js_sys::Uint8Array::from(u8_array);
-    let filename_u8_length = filename_view.length();
-    initial_view.set_index(2, filename_u8_length as u8);
-    initial_view.set(&filename_view, 3);
+    // let filename = file.name();
+    // let filename_u8_arr = filename.as_bytes();
+    // let filename_view =
+    //     js_sys::Uint8Array::from(filename_u8_arr);
+    // let filename_view_len = filename_view.length();
+    let (filename_view, _) =
+        u8_arr(file.name());
+    // initial_view.set_index(
+    //     count_view_len + 1,
+    //     filename_view_len as u8,
+    // );
+    initial_view
+        .set(&filename_view, count_view_len + 1);
     dc.send_with_array_buffer_view(&initial_view).unwrap();
     idx += 1;
 
@@ -78,29 +85,27 @@ pub(crate) async fn tranfer_file(
                     2 => {
                         let data =
                             element.result().unwrap();
-                        let view =
+
+                        let (idx_view, idx_view_len) =
+                            u8_arr(idx);
+                        let aggr_view =
                             js_sys::Uint8Array::new_with_length(
-                                8193
+                                  idx_view_len + 8192 
                             );
                         log!(
                             "view length: {:?}",
-                            view.byte_length()
+                            aggr_view.byte_length()
                         );
 
-                        let u8_array =
+                        aggr_view.set(&idx_view, 0);
+
+                        let data_view =
                             js_sys::Uint8Array::new(&data);
-
-                        log!("index: {}", idx);
-                        view.set_index(0, idx);
-                        view.set(&u8_array, 1);
-                        log!(
-                            "view.0: {:?}",
-                            view.get_index(0)
-                        );
+                        aggr_view.set(&data_view, idx_view_len );
 
                         dc_clone
                             .send_with_array_buffer_view(
-                                &view,
+                                &aggr_view,
                             )
                             .unwrap();
 
@@ -121,4 +126,19 @@ pub(crate) async fn tranfer_file(
         idx += 1;
     }
     Ok(())
+}
+
+fn u8_arr(target: impl ToString) -> ( js_sys::Uint8Array, u32 ) {
+    let str = target.to_string();
+    let u8_arr = str.as_bytes();
+    
+    let view = js_sys::Uint8Array::from(u8_arr);
+    let len = view.length();
+
+    let aggr_view = js_sys::Uint8Array::new_with_length( len + 1 );
+    aggr_view.set_index(0, len as u8);
+    aggr_view.set(&view, 1);
+    let aggr_len = aggr_view.length();
+
+    (aggr_view, aggr_len)
 }

@@ -22,22 +22,43 @@ pub(crate) fn send_file(
 pub(crate) fn receive_file(
     window: tauri::Window,
     app_handle: tauri::AppHandle,
-    filename: String,
+    signal: String,
     state: tauri::State<FileTransferState>,
 ) -> Result<(), String> {
-    let filename_u8 = general_purpose::STANDARD_NO_PAD
-        .decode(filename)
+    let data_u8_arr = general_purpose::STANDARD_NO_PAD
+        .decode(signal)
         .unwrap();
-    println!("filename_u8: {:?}", filename_u8);
-    let (header, filename) = filename_u8.split_at(3);
-    let chunk_count = header[1];
+    let (_, count_view_and_filename_view) =
+        data_u8_arr.split_at(1);
+
+    let count_view_len = data_u8_arr[0];
+    let (count_view, filename_view) =
+        count_view_and_filename_view
+            .split_at(count_view_len as usize + 1);
+    let (_, chunk_count) = count_view.split_at(1);
+    let chunk_count_str = std::str::from_utf8(chunk_count)
+        .unwrap()
+        .to_string();
+    let chunk_count =
+        chunk_count_str.parse::<u32>().unwrap();
     println!("chunk count: {}", chunk_count);
-    let filename_u8_length = header[2];
-    let (filename, _) =
-        filename.split_at(filename_u8_length as usize);
+
+    let filename_view_len = filename_view[0];
+    let (_, filename_view) = filename_view
+        .split_at(filename_view_len as usize + 1);
+    let (_, filename) = filename_view.split_at(1);
     let filename =
-        String::from_utf8(filename.to_vec()).unwrap();
-    println!("filename: {}", filename);
+        std::str::from_utf8(filename).unwrap().to_string();
+
+    // let (header, filename) = filename_u8.split_at(3);
+    // let chunk_count = header[1];
+    // println!("chunk count: {}", chunk_count);
+    // let filename_u8_length = header[2];
+    // let (filename, _) =
+    //     filename.split_at(filename_u8_length as usize);
+    // let filename =
+    //     String::from_utf8(filename.to_vec()).unwrap();
+    // println!("filename: {}", filename);
     let files_path = get_file_path(&app_handle).unwrap();
     let file_path = files_path.join(&filename);
     if std::fs::File::open(file_path).is_ok() {
@@ -61,56 +82,55 @@ pub(crate) fn receive_file(
             .trim_matches('\\')
             .trim_matches('"');
         println!("file data: {:?}", payload);
-        let u8_arr = general_purpose::STANDARD_NO_PAD
+        let aggr_view = general_purpose::STANDARD_NO_PAD
             .decode(payload)
             .unwrap();
-        if let Some((idx, u8_arr)) = u8_arr.split_first() {
-            println!("idx: {}", idx);
-            println!("chunk: {:?}", u8_arr);
-            let state =
-                app_handle.state::<FileTransferState>();
-            let mut filename_guard =
-                state.filename.try_lock().unwrap();
-            let filename = filename_guard.as_ref().unwrap();
 
-            let progress = state.progress.fetch_add(
-                1,
+        let idx_len = aggr_view[0];
+        let (idx_view, data_view) =
+            aggr_view.split_at(idx_len as usize + 1);
+        let (_, idx) = idx_view.split_at(1);
+        let idx_str =
+            std::str::from_utf8(idx).unwrap().to_string();
+        let idx = idx_str.parse::<u32>().unwrap();
+        println!("idx: {}", idx);
+
+        println!("chunk: {:?}", data_view);
+        let state = app_handle.state::<FileTransferState>();
+        let mut filename_guard =
+            state.filename.try_lock().unwrap();
+        let filename = filename_guard.as_ref().unwrap();
+
+        let progress = state.progress.fetch_add(
+            1,
+            std::sync::atomic::Ordering::SeqCst,
+        );
+
+        if progress == idx {
+            let files_path =
+                get_file_path(&app_handle).unwrap();
+            assemble_file(data_view, filename, &files_path)
+                .expect("file assemble error");
+        }
+
+        if progress == chunk_count {
+            println!("file transfer done");
+            *filename_guard = None;
+            state.progress.store(
+                0,
                 std::sync::atomic::Ordering::SeqCst,
             );
 
-            if progress == *idx {
-                let files_path =
-                    get_file_path(&app_handle).unwrap();
-                assemble_file(
-                    u8_arr,
-                    filename,
-                    &files_path,
-                )
-                .expect("file assemble error");
+            let mut event_listener_lock =
+                state.event_listener.try_lock().unwrap();
+            if let Some(listener) =
+                event_listener_lock.take()
+            {
+                let window =
+                    app_handle.get_window("main").unwrap();
+                window.unlisten(listener);
             }
-
-            if progress == chunk_count {
-                println!("file transfer done");
-                *filename_guard = None;
-                state.progress.store(
-                    0,
-                    std::sync::atomic::Ordering::SeqCst,
-                );
-
-                let mut event_listener_lock = state
-                    .event_listener
-                    .try_lock()
-                    .unwrap();
-                if let Some(listener) =
-                    event_listener_lock.take()
-                {
-                    let window = app_handle
-                        .get_window("main")
-                        .unwrap();
-                    window.unlisten(listener);
-                }
-            }
-        };
+        }
     });
 
     let mut event_listener_guard =
@@ -121,11 +141,11 @@ pub(crate) fn receive_file(
 }
 
 fn assemble_file(
-    u8_arr: &[u8],
+    data_view: &[u8],
     filename: &str,
     files_path: &std::path::Path,
 ) -> Result<(), String> {
-    println!("chunk: {:?}", u8_arr);
+    println!("chunk: {:?}", data_view);
     let file_path = files_path.join(filename);
 
     let mut file = std::fs::OpenOptions::new()
@@ -134,7 +154,7 @@ fn assemble_file(
         .append(true)
         .open(file_path)
         .unwrap();
-    file.write_all(u8_arr).unwrap();
+    file.write_all(data_view).unwrap();
 
     Ok(())
 }

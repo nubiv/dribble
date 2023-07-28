@@ -12,7 +12,7 @@ pub(crate) struct SendFileCmdArgs {
 
 #[derive(serde::Serialize)]
 pub(crate) struct ReceiveFileCmdArgs {
-    filename: String,
+    signal: String,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
@@ -45,11 +45,11 @@ pub(crate) async fn invoke_open_file_folder(
 }
 
 pub(crate) async fn invoke_receive_file(
-    filename: String,
+    signal: String,
 ) -> Result<(), String> {
     if let Err(e) = tauri::invoke::<_, ()>(
         "receive_file",
-        &ReceiveFileCmdArgs { filename },
+        &ReceiveFileCmdArgs { signal },
     )
     .await
     {
