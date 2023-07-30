@@ -27,7 +27,7 @@ pub(crate) fn ConfigPanel(cx: Scope) -> impl IntoView {
             <div class="flex flex-col h-[30%] mt-4">
                 <select class="rounded-lg bg-gray-100 border-blue-400 text-blue-400 m-1 hover:cursor-pointer p-3" on:change=on_select>
                     <option value="0" default>"File Transfer"</option>
-                    <option value="1">"With Voice Chat"</option>
+                    <option value="1">"With Video Chat"</option>
                     <option value="2">"With Audio Chat"</option>
                 </select>
             </div>

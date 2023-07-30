@@ -98,7 +98,7 @@ pub(crate) fn LobbyPage(cx: Scope) -> impl IntoView {
     // }
 
     view! { cx,
-        <div class="flex flex-col items-center mb-auto mt-4">
+        <div class="flex flex-col items-center mb-auto mt-auto">
             <div
                 class="flex flex-col mt-auto mx-auto w-full h-auto"
             >
@@ -115,9 +115,9 @@ pub(crate) fn LobbyPage(cx: Scope) -> impl IntoView {
                         "Send"
                     </button>
                 </div>
-                <div class="mx-auto my-1 p-2">
-                    <input type="file" class=""></input>
-                </div>
+                // <div class="mx-auto my-1 p-2">
+                //     <input type="file" class=""></input>
+                // </div>
             </div>
             <button
                 class="bg-blue-400 text-white mb-auto rounded-lg py-2 px-4 mt-8 hover:bg-gray-600"

@@ -61,7 +61,7 @@ pub fn LandingPage(
                 }
                 None => {
                     log!("creating new connection");
-                    let pc = init_connection().unwrap();
+                    let pc = init_connection("").unwrap();
                     // if let Err(e) = answer_offer(
                     //     &remote_sdp,
                     //     &pc,
@@ -86,7 +86,7 @@ pub fn LandingPage(
 
     let on_generate_offer = move |_| {
         leptos::spawn_local(async move {
-            let pc = init_connection().unwrap();
+            let pc = init_connection("").unwrap();
             // if let Err(e) = create_offer(
             //     &pc,
             //     local_stream_ref,

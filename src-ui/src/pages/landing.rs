@@ -1,6 +1,6 @@
 use leptos::{
-    component, log, use_context, view, IntoView, Scope,
-    SignalSet,
+    component, create_node_ref, html::Input, log,
+    use_context, view, IntoView, Scope, SignalSet,
 };
 
 use crate::{
@@ -19,9 +19,22 @@ pub(crate) fn LandingPage(cx: Scope) -> impl IntoView {
         use_context::<RoleContext>(cx).unwrap().1;
     let set_rtc_pc =
         use_context::<RtcConnectionContext>(cx).unwrap().1;
+    let stun_server_ref = create_node_ref::<Input>(cx);
+
+    let get_stun_server = move || {
+        let stun_server_el = stun_server_ref.get().unwrap();
+        let value = stun_server_el.value();
+
+        if value.is_empty() {
+            "stun:stun.l.google.com:19302".to_string()
+        } else {
+            value
+        }
+    };
 
     let on_initiator = move |_| {
-        match init_connection() {
+        let stun_server = get_stun_server();
+        match init_connection(&stun_server) {
             Ok(pc) => {
                 set_rtc_pc.set(Some(pc));
 
@@ -35,7 +48,8 @@ pub(crate) fn LandingPage(cx: Scope) -> impl IntoView {
     };
 
     let on_responder = move |_| {
-        match init_connection() {
+        let stun_server = get_stun_server();
+        match init_connection(&stun_server) {
             Ok(pc) => {
                 set_rtc_pc.set(Some(pc));
 
@@ -66,6 +80,15 @@ pub(crate) fn LandingPage(cx: Scope) -> impl IntoView {
                     >
                     "Responder"
                 </button>
+                <label class="text-blue-400">
+                    "Stun Server:"
+                </label>
+                <input
+                    node_ref=stun_server_ref
+                    class="border-blue-400 border-2 rounded-lg py-2 px-4 mb-auto"
+                    placeholder="Default as Google Stun Server"
+                    >
+                </input>
             </div>
         </div>
     }

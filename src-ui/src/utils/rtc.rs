@@ -27,6 +27,7 @@ use crate::{
 };
 
 pub(crate) fn init_connection(
+    stun_server: &str,
 ) -> Result<RtcPeerConnection, JsValue> {
     RtcPeerConnection::new_with_configuration(&{
         let ice_servers = Array::new();
