@@ -473,41 +473,35 @@ fn track_channel_event(
                 >::new(
                     move |ev: MessageEvent| {
                         let data = ev.data();
-                        // if let Some(message) =
-                        //     ev.data().as_string()
-                        // {
-                        //     log!("{:?}", message);
-                        // }
 
-                        // let js_type = data.js_typeof();
-                        // log!("js type: {:?}", js_type);
                         match data.is_instance_of::<js_sys::ArrayBuffer>() {
                             true => {
                                 log!("view received");
-                                // let view = js_sys::Uint32Array::new_with_length(1025);
-                                // view.set(&data, 0);
+
                                 let view = js_sys::Uint8Array::new(&data);
-                                let idx = view.get_index(0);
-                                log!("view idx: {:?}", idx);
-                                let u8_array = view.to_vec();
-                                log!("utf8: {:?}", u8_array);
+                                let u8_arr = view.to_vec();
+                                log!("utf8: {:?}", u8_arr);
                                 let encoded =
-                                    general_purpose::STANDARD_NO_PAD.encode(u8_array);
+                                    general_purpose::STANDARD_NO_PAD.encode(&u8_arr);
                                 log!("encoded: {:?}", encoded);
 
-                                match idx {
+                                match u8_arr[0] {
                                     0 => {
                                         log!("file transfer start");
                                         leptos::spawn_local(async move {
                                             invoke_receive_file(encoded).await.unwrap();
-                                        })
+                                        });
+
+                                        // local_test_signal(encoded);
                                     }
                                     _ => {
                                         leptos::spawn_local(async move {
                                             emit_file_data(encoded)
                                                 .await
                                                 .unwrap();
-                                        })
+                                        });
+
+                                        // local_test_data(encoded);
                                     }
                                 }
 
@@ -554,4 +548,56 @@ fn track_channel_event(
     ondatachannel_callback.forget();
 
     Ok(())
+}
+
+fn local_test_signal(encoded: String) {
+    let data_u8_arr = general_purpose::STANDARD_NO_PAD
+        .decode(encoded)
+        .unwrap();
+    let (_, count_view_and_filename_view) =
+        data_u8_arr.split_at(1);
+
+    log!(
+        "count view and filename view: {:?}",
+        count_view_and_filename_view
+    );
+    let count_view_len = count_view_and_filename_view[0];
+    let (count_view, filename_view) =
+        count_view_and_filename_view
+            .split_at(count_view_len as usize + 1);
+    log!("count view: {:?}", count_view);
+    let (_, chunk_count) = count_view.split_at(1);
+    let chunk_count_str =
+        std::str::from_utf8(chunk_count).unwrap();
+    log!("chunk count str: {}", chunk_count_str);
+    let chunk_count =
+        chunk_count_str.parse::<u32>().unwrap();
+    log!("chunk count: {}", chunk_count);
+
+    log!("filename view: {:?}", filename_view);
+    let filename_view_len = filename_view[0];
+    let (filename_view, _) = filename_view
+        .split_at(filename_view_len as usize + 1);
+    let (_, filename) = filename_view.split_at(1);
+    log!("filename: {:?}", filename);
+    let filename =
+        std::str::from_utf8(filename).unwrap().to_string();
+    log!("filename: {}", filename);
+}
+
+fn local_test_data(encoded: String) {
+    let aggr_view = general_purpose::STANDARD_NO_PAD
+        .decode(encoded)
+        .unwrap();
+
+    let idx_len = aggr_view[0];
+    let (idx_view, data_view) =
+        aggr_view.split_at(idx_len as usize + 1);
+    let (_, idx) = idx_view.split_at(1);
+    let idx_str =
+        std::str::from_utf8(idx).unwrap().to_string();
+    let idx = idx_str.parse::<u32>().unwrap();
+    log!("idx: {}", idx);
+
+    log!("chunk: {:?}", data_view);
 }

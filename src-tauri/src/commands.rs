@@ -31,34 +31,26 @@ pub(crate) fn receive_file(
     let (_, count_view_and_filename_view) =
         data_u8_arr.split_at(1);
 
-    let count_view_len = data_u8_arr[0];
+    let count_view_len = count_view_and_filename_view[0];
     let (count_view, filename_view) =
         count_view_and_filename_view
             .split_at(count_view_len as usize + 1);
     let (_, chunk_count) = count_view.split_at(1);
-    let chunk_count_str = std::str::from_utf8(chunk_count)
-        .unwrap()
-        .to_string();
+    let chunk_count_str =
+        std::str::from_utf8(chunk_count).unwrap();
+    println!("chunk count str: {}", chunk_count_str);
     let chunk_count =
         chunk_count_str.parse::<u32>().unwrap();
     println!("chunk count: {}", chunk_count);
 
     let filename_view_len = filename_view[0];
-    let (_, filename_view) = filename_view
+    let (filename_view, _) = filename_view
         .split_at(filename_view_len as usize + 1);
     let (_, filename) = filename_view.split_at(1);
     let filename =
         std::str::from_utf8(filename).unwrap().to_string();
+    println!("filename: {}", filename);
 
-    // let (header, filename) = filename_u8.split_at(3);
-    // let chunk_count = header[1];
-    // println!("chunk count: {}", chunk_count);
-    // let filename_u8_length = header[2];
-    // let (filename, _) =
-    //     filename.split_at(filename_u8_length as usize);
-    // let filename =
-    //     String::from_utf8(filename.to_vec()).unwrap();
-    // println!("filename: {}", filename);
     let files_path = get_file_path(&app_handle).unwrap();
     let file_path = files_path.join(&filename);
     if std::fs::File::open(file_path).is_ok() {
